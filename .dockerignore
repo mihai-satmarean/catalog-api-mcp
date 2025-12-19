@@ -1,0 +1,72 @@
+# Dependencies
+node_modules
+npm-debug.log
+package-lock.json
+
+# Build artifacts
+dist
+build
+*.js.map
+*.d.ts.map
+
+# Development files
+.git
+.github
+*.md
+!bmac-mcp-server/dist/**
+!bmac-mcp-server/node_modules/**
+!bmac-mcp-server/package.json
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.production
+*.env
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Next.js (main app)
+src/app
+src/components
+src/lib
+public
+next.config.ts
+postcss.config.mjs
+components.json
+
+# Database
+drizzle
+*.sql
+drizzle.config.ts
+
+# Tests
+test
+tests
+*.test.ts
+*.spec.ts
+
+# Documentation
+CONFIGURATION.md
+CURSOR_SETUP.md
+QUICKSTART.md
+README.md
+DOCKER.md
+DOCKER_BUILD.md
+
+# Scripts
+*.sh
+test-*.js
+
+# Other
+bmac-demo
+.dockerignore
+docker-compose.yml
+tsconfig.json
+eslint.config.mjs
+

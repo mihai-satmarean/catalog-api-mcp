@@ -1,15 +1,15 @@
 # Production image using obot's base
 FROM ghcr.io/obot-platform/mcp-images-phat:main
 
-# Copy the pre-built application and dependencies
-COPY dist/index.js ./bmac-mcp-server
-COPY node_modules ./node_modules
-COPY package.json ./package.json
+# Copy the pre-built application and dependencies from bmac-mcp-server directory
+COPY bmac-mcp-server/dist/index.js ./catalog-api-mcp
+COPY bmac-mcp-server/node_modules ./node_modules
+COPY bmac-mcp-server/package.json ./package.json
 
 USER root
 
 # Make executable
-RUN chmod +x ./bmac-mcp-server
+RUN chmod +x ./catalog-api-mcp
 
 RUN cat > nanobot.yaml <<'EOF'
 publish:
@@ -18,7 +18,7 @@ publish:
 mcpServers:
   server:
     command: node
-    args: [./bmac-mcp-server]
+    args: [./catalog-api-mcp]
     env:
       DATABASE_URL: ${DATABASE_URL}
 EOF

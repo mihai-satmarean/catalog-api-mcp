@@ -64,8 +64,8 @@ toolPreview:
 metadata:
   categories: Product Management, E-commerce, Database, Inventory Management
   unsupportedTools: 
-icon: https://raw.githubusercontent.com/your-org/bmac-demo-start/main/public/logo.svg
-repoURL: https://github.com/your-org/bmac-demo-start
+icon: https://raw.githubusercontent.com/mihai-satmarean/catalog-api-mcp/main/public/logo.svg
+repoURL: https://github.com/mihai-satmarean/catalog-api-mcp
 
 env:
   - key: DATABASE_URL
@@ -81,9 +81,10 @@ env:
 
 runtime: containerized
 containerizedConfig:
-  image: 'ghcr.io/your-org/bmac-mcp-server:latest'
-  port: 0
-  path: '/'
+  image: 'ghcr.io/mihai-satmarean/catalog-api-mcp:latest'
+  port: 3000
+  path: '/mcp'
   env:
+    PORT: "3000"
     DATABASE_URL: "${DATABASE_URL}"
 
