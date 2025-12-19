@@ -1,0 +1,92 @@
+name: Moodle MCP Server
+description: |
+  A Model Context Protocol (MCP) server that provides comprehensive integration with Moodle Learning Management System. Access and manage courses, students, assignments, quizzes, and get detailed analytics across your Moodle platform.
+
+  ## Features
+  - **Platform-wide Course Management**: Browse, search, and analyze all courses across your Moodle platform
+  - **Course Content Analysis**: Deep dive into course structures, modules, resources, and activities
+  - **Student Management**: View enrolled students, track progress, and manage enrollments
+  - **Assignment & Quiz Management**: Handle assignments, submissions, and provide automated feedback
+  - **Comprehensive Statistics**: Get detailed analytics about courses, enrollments, activities, and completion rates
+  - **Admin Tools**: Platform administration capabilities for course management and oversight
+
+  ## What you'll need to connect
+  **Required:**
+  - **Moodle API URL**: Your Moodle webservice endpoint URL
+  - **Moodle API Token**: API token with appropriate permissions for course management
+
+  **Optional:**
+  - **Course ID**: Default course ID for course-specific operations (not required for admin tools)
+
+toolPreview:
+  - name: get_courses
+    description: Retrieves the list of all available courses on the Moodle platform
+    params:
+      categoryId: Optional category ID to filter courses by category (optional)
+      searchTerm: Optional search term to filter courses by name (optional)
+      limit: Optional limit for number of courses to return (optional)
+      getAllCourses: Optional flag to get all courses using alternative methods (optional)
+  - name: get_course_statistics
+    description: Provides comprehensive statistics about courses including enrollments and activities
+    params:
+      courseId: Optional course ID to get statistics for specific course (optional)
+      categoryId: Optional category ID to filter statistics by category (optional)
+      includeEnrollment: Whether to include enrollment statistics (optional)
+      includeActivity: Whether to include activity statistics (optional)
+  - name: get_course_contents
+    description: Retrieves the complete content structure of a specific course
+    params:
+      courseId: Course ID to get contents for (optional)
+      includeModules: Whether to include detailed module information (optional)
+      includeResources: Whether to include resource details (optional)
+  - name: list_students
+    description: Retrieves the list of students enrolled in the course
+    params:
+      courseId: Course ID to get students for (optional)
+  - name: get_assignments
+    description: Retrieves all available assignments in the course
+    params:
+      courseId: Course ID to get assignments for (optional)
+  - name: provide_assignment_feedback
+    description: Provides grades and comments for a student's submission
+    params:
+      studentId: Student ID (required)
+      assignmentId: Assignment ID (required)
+      grade: Numeric grade to assign (required)
+      feedback: Text of the feedback to provide (required)
+
+metadata:
+  categories: Education, Learning Management, Course Management
+  unsupportedTools: 
+icon: https://raw.githubusercontent.com/moodle/moodle/master/pix/moodlelogo.png
+repoURL: https://github.com/mihai-satmarean/moodle-mcp-server
+
+env:
+  - key: MOODLE_API_URL
+    name: Moodle API URL
+    required: true
+    sensitive: false
+    description: URL to your Moodle webservice endpoint (e.g., https://your-moodle.com/webservice/rest/server.php)
+  - key: MOODLE_API_TOKEN
+    name: Moodle API Token
+    required: true
+    sensitive: true
+    description: Your Moodle API token with appropriate permissions for course management
+  - key: MOODLE_COURSE_ID
+    name: Default Course ID
+    required: false
+    sensitive: false
+    description: Default course ID for course-specific operations (optional for admin tools)
+  - key: PORT
+    name: Server Port
+    required: false
+    sensitive: false
+    description: Port for the MCP server to listen on (default 3000)
+
+runtime: containerized
+containerizedConfig:
+  image: 'ghcr.io/mihai-satmarean/moodle-mcp-server:latest'
+  port: 3000
+  path: '/mcp'
+  env:
+    PORT: "3000"

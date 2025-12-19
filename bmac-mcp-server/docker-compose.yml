@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  bmac-mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bmac-mcp-server
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:password@host.docker.internal:5433/bmac_demo_start}
+    # MCP servers communicate via stdio, so we don't expose ports
+    # They are invoked directly by MCP clients
+    stdin_open: true
+    tty: true
+    # Keep container running for debugging
+    command: tail -f /dev/null
+
