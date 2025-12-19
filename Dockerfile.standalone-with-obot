@@ -1,25 +1,17 @@
-# Simple standalone version: Use Alpine with both PostgreSQL and Node.js
-FROM alpine:3.19
+# Use obot base image that already has nanobot
+FROM ghcr.io/obot-platform/mcp-images-phat:main AS base
 
-# Install PostgreSQL, Node.js, and supervisor
+# Install PostgreSQL and supervisor on obot base
+USER root
 RUN apk add --no-cache \
     postgresql16 \
     postgresql16-contrib \
-    nodejs \
-    npm \
-    supervisor \
-    bash \
-    curl
+    supervisor
 
-# Install nanobot from GitHub releases
-RUN ARCH=$(uname -m) && \
-    OS=$(uname -s) && \
-    curl -fsSL "https://github.com/obot-platform/nanobot/releases/latest/download/nanobot_${OS}_${ARCH}.tar.gz" | \
-    tar -xzf - -C /usr/local/bin nanobot && \
-    chmod +x /usr/local/bin/nanobot
+# Set working directory
+WORKDIR /app
 
 # Copy the pre-built application
-WORKDIR /app
 COPY bmac-mcp-server/dist ./
 COPY bmac-mcp-server/node_modules ./node_modules
 COPY bmac-mcp-server/package.json ./package.json

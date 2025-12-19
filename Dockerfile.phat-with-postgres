@@ -1,25 +1,37 @@
-# Simple standalone version: Use Alpine with both PostgreSQL and Node.js
-FROM alpine:3.19
+# Build stage: Get PostgreSQL from Alpine
+FROM alpine:3.19 AS postgres-source
 
-# Install PostgreSQL, Node.js, and supervisor
 RUN apk add --no-cache \
     postgresql16 \
     postgresql16-contrib \
-    nodejs \
-    npm \
-    supervisor \
-    bash \
-    curl
+    supervisor
 
-# Install nanobot from GitHub releases
-RUN ARCH=$(uname -m) && \
-    OS=$(uname -s) && \
-    curl -fsSL "https://github.com/obot-platform/nanobot/releases/latest/download/nanobot_${OS}_${ARCH}.tar.gz" | \
-    tar -xzf - -C /usr/local/bin nanobot && \
-    chmod +x /usr/local/bin/nanobot
+# Final stage: obot phat image with PostgreSQL
+FROM ghcr.io/obot-platform/mcp-images-phat:main
+
+USER root
+
+# Copy PostgreSQL binaries and libraries from Alpine
+COPY --from=postgres-source /usr/bin/postgres /usr/bin/
+COPY --from=postgres-source /usr/bin/initdb /usr/bin/
+COPY --from=postgres-source /usr/bin/pg_ctl /usr/bin/
+COPY --from=postgres-source /usr/bin/createdb /usr/bin/
+COPY --from=postgres-source /usr/bin/psql /usr/bin/
+COPY --from=postgres-source /usr/lib/postgresql16/ /usr/lib/postgresql16/
+COPY --from=postgres-source /usr/libexec/postgresql16/ /usr/libexec/postgresql16/
+COPY --from=postgres-source /usr/share/postgresql/ /usr/share/postgresql/
+COPY --from=postgres-source /usr/bin/supervisord /usr/bin/
+COPY --from=postgres-source /usr/bin/supervisorctl /usr/bin/
+COPY --from=postgres-source /usr/lib/python3.11/ /usr/lib/python3.11/
+COPY --from=postgres-source /usr/lib/libpython3.11.so.1.0 /usr/lib/
+
+# Create symlink for postgres user shell
+RUN ln -sf /bin/sh /bin/bash || true
+
+# Set working directory
+WORKDIR /app
 
 # Copy the pre-built application
-WORKDIR /app
 COPY bmac-mcp-server/dist ./
 COPY bmac-mcp-server/node_modules ./node_modules
 COPY bmac-mcp-server/package.json ./package.json
@@ -42,6 +54,8 @@ EOF
 
 # Configure PostgreSQL
 RUN mkdir -p /run/postgresql /var/lib/postgresql/data /var/log && \
+    addgroup -g 70 -S postgres 2>/dev/null || true && \
+    adduser -u 70 -S -D -G postgres -H -h /var/lib/postgresql -s /bin/sh postgres 2>/dev/null || true && \
     chown -R postgres:postgres /run/postgresql /var/lib/postgresql && \
     chmod 2777 /run/postgresql
 
@@ -59,7 +73,7 @@ RUN pg_ctl -D /var/lib/postgresql/data start && \
 
 USER root
 
-# Create supervisor configuration directory and files
+# Create supervisor configuration
 RUN mkdir -p /etc/supervisor/conf.d /var/log/supervisor && \
     cat > /etc/supervisor/supervisord.conf <<'EOF'
 [unix_http_server]
@@ -84,7 +98,7 @@ EOF
 RUN cat > /etc/supervisor/conf.d/services.conf <<'EOF'
 [program:postgresql]
 user=postgres
-command=postgres -D /var/lib/postgresql/data
+command=/usr/bin/postgres -D /var/lib/postgresql/data
 autostart=true
 autorestart=true
 stdout_logfile=/dev/stdout
