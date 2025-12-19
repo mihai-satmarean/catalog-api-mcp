@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "bmac": {
+      "command": "node",
+      "args": ["/Users/relaxZone/Projects/BMAC-demo-start/bmac-mcp-server/dist/index.js"],
+      "env": {
+        "DATABASE_URL": "postgresql://postgres:password@localhost:5433/bmac_demo_start"
+      }
+    }
+  }
+}
+
