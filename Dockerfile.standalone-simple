@@ -1,0 +1,102 @@
+# Simple standalone version: Use Alpine with both PostgreSQL and Node.js
+FROM alpine:3.19
+
+# Install PostgreSQL, Node.js, and supervisor
+RUN apk add --no-cache \
+    postgresql16 \
+    postgresql16-contrib \
+    nodejs \
+    npm \
+    supervisor \
+    bash \
+    curl
+
+# No nanobot needed - will run Node.js directly
+
+# Copy the pre-built application
+WORKDIR /app
+COPY bmac-mcp-server/dist ./
+COPY bmac-mcp-server/node_modules ./node_modules
+COPY bmac-mcp-server/package.json ./package.json
+
+RUN chmod +x ./index.js
+
+# Configure PostgreSQL
+RUN mkdir -p /run/postgresql /var/lib/postgresql/data /var/log && \
+    chown -R postgres:postgres /run/postgresql /var/lib/postgresql && \
+    chmod 2777 /run/postgresql
+
+# Initialize database as postgres user
+USER postgres
+RUN initdb -D /var/lib/postgresql/data && \
+    echo "host all all 127.0.0.1/32 trust" >> /var/lib/postgresql/data/pg_hba.conf && \
+    echo "listen_addresses='127.0.0.1'" >> /var/lib/postgresql/data/postgresql.conf
+
+# Start PostgreSQL temporarily to create database
+RUN pg_ctl -D /var/lib/postgresql/data start && \
+    sleep 2 && \
+    createdb bmac_demo_start && \
+    pg_ctl -D /var/lib/postgresql/data stop
+
+USER root
+
+# Create supervisor configuration directory and files
+RUN mkdir -p /etc/supervisor/conf.d /var/log/supervisor && \
+    cat > /etc/supervisor/supervisord.conf <<'EOF'
+[unix_http_server]
+file=/var/run/supervisor.sock
+
+[supervisord]
+logfile=/var/log/supervisor/supervisord.log
+pidfile=/var/run/supervisord.pid
+childlogdir=/var/log/supervisor
+nodaemon=true
+
+[rpcinterface:supervisor]
+supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
+
+[supervisorctl]
+serverurl=unix:///var/run/supervisor.sock
+
+[include]
+files = /etc/supervisor/conf.d/*.conf
+EOF
+
+RUN cat > /etc/supervisor/conf.d/services.conf <<'EOF'
+[program:postgresql]
+user=postgres
+command=postgres -D /var/lib/postgresql/data
+autostart=true
+autorestart=true
+stdout_logfile=/dev/stdout
+stdout_logfile_maxbytes=0
+stderr_logfile=/dev/stderr
+stderr_logfile_maxbytes=0
+priority=10
+startsecs=3
+
+[program:mcp-server]
+user=root
+directory=/app
+environment=DATABASE_URL="postgresql://postgres@localhost:5432/bmac_demo_start",PORT="3000"
+command=node ./index.js
+autostart=true
+autorestart=true
+stdout_logfile=/dev/stdout
+stdout_logfile_maxbytes=0
+stderr_logfile=/dev/stderr
+stderr_logfile_maxbytes=0
+startsecs=10
+priority=20
+EOF
+
+ENV DATABASE_URL=postgresql://postgres@localhost:5432/bmac_demo_start
+ENV PORT=3000
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=3 \
+  CMD ps aux | grep -E '(postgres|node)' | grep -v grep || exit 1
+
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]
+

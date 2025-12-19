@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database for BMAC Catalog
+  postgres:
+    image: postgres:15
+    container_name: catalog-api-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bmac_demo_start
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - catalog-network
+
+  # Catalog API MCP Server
+  catalog-mcp:
+    image: ghcr.io/mihai-satmarean/catalog-api-mcp:latest
+    container_name: catalog-api-mcp-server
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/bmac_demo_start
+      PORT: "3000"
+    ports:
+      - "3000:3000"
+    networks:
+      - catalog-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/mcp"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  catalog-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+
