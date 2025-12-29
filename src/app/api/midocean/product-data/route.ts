@@ -13,11 +13,11 @@ function getProperty(obj: any, ...keys: string[]): any {
   return null;
 }
 
-// Helper function to safely parse decimal values
-function parseDecimal(value: any): string | null {
+// Helper function to safely parse decimal values (returns number for real fields)
+function parseDecimal(value: any): number | null {
   if (value == null || value === '') return null;
   const num = typeof value === 'string' ? parseFloat(value) : value;
-  return isNaN(num) ? null : num.toString();
+  return isNaN(num) ? null : num;
 }
 
 // Helper function to safely parse integer values
@@ -27,11 +27,12 @@ function parseIntSafe(value: any): number | null {
   return isNaN(num) ? null : num;
 }
 
-// Helper function to parse timestamp
+// Helper function to parse timestamp and return Date object (Drizzle mode: 'timestamp' expects Date objects)
 function parseTimestamp(value: any): Date | null {
   if (!value) return null;
   try {
-    return new Date(value);
+    const date = new Date(value);
+    return isNaN(date.getTime()) ? null : date;
   } catch {
     return null;
   }
@@ -81,68 +82,92 @@ function transformMidoceanProduct(product: any): { product: any; variants: any[]
     }
   }
   
-  // Transform master product fields
+  // Helper function to sanitize string values (remove null/undefined, trim, limit length)
+  function sanitizeString(value: any, maxLength?: number): string | null {
+    if (value == null || value === '') return null;
+    const str = String(value).trim();
+    if (str === '') return null;
+    return maxLength ? str.substring(0, maxLength) : str;
+  }
+
+  // Transform master product fields - only include fields that exist in schema
   const transformed: any = {
     source: 'midocean',
     name: name.trim().substring(0, 255),
-    description: product.long_description || product.longDescription || product.description || null,
-    brand: product.brand || null,
-    productCode: productCode,
-    externalId: externalId,
+    description: sanitizeString(product.long_description || product.longDescription || product.description),
+    brand: sanitizeString(product.brand),
+    productCode: sanitizeString(productCode),
+    externalId: sanitizeString(externalId),
     // Midocean master fields
-    masterCode: masterCode,
-    masterId: masterId,
-    typeOfProducts: product.type_of_products || product.typeOfProducts || null,
-    commodityCode: product.commodity_code || product.commodityCode || null,
-    numberOfPrintPositions: product.number_of_print_positions || product.numberOfPrintPositions || null,
-    productName: product.product_name || product.productName || null,
-    categoryCode: product.category_code || product.categoryCode || null,
-    productClass: product.product_class || product.productClass || null,
+    masterCode: sanitizeString(masterCode),
+    masterId: sanitizeString(masterId),
+    typeOfProducts: sanitizeString(product.type_of_products || product.typeOfProducts),
+    commodityCode: sanitizeString(product.commodity_code || product.commodityCode),
+    numberOfPrintPositions: sanitizeString(product.number_of_print_positions || product.numberOfPrintPositions),
+    productName: sanitizeString(product.product_name || product.productName),
+    categoryCode: sanitizeString(product.category_code || product.categoryCode),
+    productClass: sanitizeString(product.product_class || product.productClass),
     // Dimensions
     length: parseDecimal(product.length),
-    lengthUnit: product.length_unit || product.lengthUnit || null,
+    lengthUnit: sanitizeString(product.length_unit || product.lengthUnit),
     width: parseDecimal(product.width),
-    widthUnit: product.width_unit || product.widthUnit || null,
+    widthUnit: sanitizeString(product.width_unit || product.widthUnit),
     height: parseDecimal(product.height),
-    heightUnit: product.height_unit || product.heightUnit || null,
-    dimensions: product.dimensions || null,
+    heightUnit: sanitizeString(product.height_unit || product.heightUnit),
+    dimensions: sanitizeString(product.dimensions),
     // Volume
     volume: parseDecimal(product.volume),
-    volumeUnit: product.volume_unit || product.volumeUnit || null,
+    volumeUnit: sanitizeString(product.volume_unit || product.volumeUnit),
     // Weight
     grossWeight: parseDecimal(product.gross_weight || product.grossWeight),
-    grossWeightUnit: product.gross_weight_unit || product.grossWeightUnit || null,
+    grossWeightUnit: sanitizeString(product.gross_weight_unit || product.grossWeightUnit),
     netWeight: parseDecimal(product.net_weight || product.netWeight),
-    netWeightUnit: product.net_weight_unit || product.netWeightUnit || null,
+    netWeightUnit: sanitizeString(product.net_weight_unit || product.netWeightUnit),
     weight: parseDecimal(product.net_weight || product.netWeight), // For backward compatibility
     // Carton information
     innerCartonQuantity: parseIntSafe(product.inner_carton_quantity || product.innerCartonQuantity),
     outerCartonQuantity: parseIntSafe(product.outer_carton_quantity || product.outerCartonQuantity),
     cartonLength: parseDecimal(product.carton_length || product.cartonLength),
-    cartonLengthUnit: product.carton_length_unit || product.cartonLengthUnit || null,
+    cartonLengthUnit: sanitizeString(product.carton_length_unit || product.cartonLengthUnit),
     cartonWidth: parseDecimal(product.carton_width || product.cartonWidth),
-    cartonWidthUnit: product.carton_width_unit || product.cartonWidthUnit || null,
+    cartonWidthUnit: sanitizeString(product.carton_width_unit || product.cartonWidthUnit),
     cartonHeight: parseDecimal(product.carton_height || product.cartonHeight),
-    cartonHeightUnit: product.carton_height_unit || product.cartonHeightUnit || null,
+    cartonHeightUnit: sanitizeString(product.carton_height_unit || product.cartonHeightUnit),
     cartonVolume: parseDecimal(product.carton_volume || product.cartonVolume),
-    cartonVolumeUnit: product.carton_volume_unit || product.cartonVolumeUnit || null,
+    cartonVolumeUnit: sanitizeString(product.carton_volume_unit || product.cartonVolumeUnit),
     cartonGrossWeight: parseDecimal(product.carton_gross_weight || product.cartonGrossWeight),
-    cartonGrossWeightUnit: product.carton_gross_weight_unit || product.cartonGrossWeightUnit || null,
+    cartonGrossWeightUnit: sanitizeString(product.carton_gross_weight_unit || product.cartonGrossWeightUnit),
     // Descriptions
-    shortDescription: product.short_description || product.shortDescription || null,
-    longDescription: product.long_description || product.longDescription || null,
+    shortDescription: sanitizeString(product.short_description || product.shortDescription),
+    longDescription: sanitizeString(product.long_description || product.longDescription),
     // Material and packaging
-    material: product.material || null,
-    packagingAfterPrinting: product.packaging_after_printing || product.packagingAfterPrinting || null,
-    printable: product.printable || null,
+    material: sanitizeString(product.material),
+    packagingAfterPrinting: sanitizeString(product.packaging_after_printing || product.packagingAfterPrinting),
+    printable: sanitizeString(product.printable),
     // Additional metadata
-    countryOfOrigin: product.country_of_origin || product.countryOfOrigin || null,
+    countryOfOrigin: sanitizeString(product.country_of_origin || product.countryOfOrigin),
     timestamp: parseTimestamp(product.timestamp),
     // Images - use main image from first variant if available
-    imageUrl: mainImageUrl || product.imageUrl || product.image || null,
-    // Store raw data for flexibility
-    rawData: JSON.stringify(product),
+    imageUrl: sanitizeString(mainImageUrl || product.imageUrl || product.image),
+    // Store raw data for flexibility - ensure it's a valid JSON string
+    rawData: (() => {
+      try {
+        const jsonStr = JSON.stringify(product);
+        // Limit size to prevent issues (SQLite TEXT can handle large strings, but let's be safe)
+        return jsonStr.length > 1000000 ? jsonStr.substring(0, 1000000) : jsonStr;
+      } catch (e) {
+        console.warn('Failed to stringify product for rawData:', e);
+        return null;
+      }
+    })(),
   };
+
+  // Remove undefined values to avoid SQL issues
+  Object.keys(transformed).forEach(key => {
+    if (transformed[key] === undefined) {
+      delete transformed[key];
+    }
+  });
 
   // Extract variants
   const variants: any[] = [];
@@ -284,6 +309,8 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    console.log(`Processing ${productsArray.length} product(s) from Midocean API`);
+
     const savedProducts = [];
     const errors: Array<{ productCode: string; error: string }> = [];
     const skipped: Array<{ productCode: string; reason: string }> = [];
@@ -319,7 +346,7 @@ export async function GET(request: NextRequest) {
         const transformed = transformMidoceanProduct(product);
         const transformedProduct = transformed.product;
         const variants = transformed.variants;
-        const digitalAssets = transformed.digitalAssets;
+        const assetsToSave = transformed.digitalAssets; // Renamed to avoid conflict with table import
         
         // Double-check that we have a valid name (should never be empty after transformation)
         if (!transformedProduct.name || transformedProduct.name.trim() === '') {
@@ -379,12 +406,44 @@ export async function GET(request: NextRequest) {
         if (existing) {
           // Update existing product
           try {
+            // Filter to only include fields that exist in the schema
+            const validFields = [
+              'source', 'name', 'description', 'price', 'brand', 'productCode', 'externalId',
+              'category', 'subCategory', 'material', 'color', 'length', 'width', 'height',
+              'dimensions', 'weight', 'imageUrl', 'imageUrls', 'countryOfOrigin', 'eanCode',
+              'masterCode', 'masterId', 'typeOfProducts', 'commodityCode', 'numberOfPrintPositions',
+              'productName', 'categoryCode', 'productClass', 'lengthUnit', 'widthUnit', 'heightUnit',
+              'volume', 'volumeUnit', 'grossWeight', 'grossWeightUnit', 'netWeight', 'netWeightUnit',
+              'innerCartonQuantity', 'outerCartonQuantity', 'cartonLength', 'cartonLengthUnit',
+              'cartonWidth', 'cartonWidthUnit', 'cartonHeight', 'cartonHeightUnit', 'cartonVolume',
+              'cartonVolumeUnit', 'cartonGrossWeight', 'cartonGrossWeightUnit', 'shortDescription',
+              'longDescription', 'packagingAfterPrinting', 'printable', 'timestamp', 'rawData'
+            ];
+            
+            const sanitizedProduct: any = {};
+            
+            validFields.forEach(field => {
+              const value = transformedProduct[field];
+              if (value !== null && value !== undefined) {
+                // Handle Date objects
+                if (value instanceof Date) {
+                  sanitizedProduct[field] = value;
+                } else if (typeof value === 'string') {
+                  sanitizedProduct[field] = String(value);
+                } else if (typeof value === 'number' && isFinite(value)) {
+                  sanitizedProduct[field] = value;
+                } else if (typeof value === 'boolean') {
+                  sanitizedProduct[field] = value;
+                }
+              }
+            });
+            
+            // Set updatedAt - let Drizzle handle the Date conversion
+            sanitizedProduct.updatedAt = new Date();
+            
             const [updated] = await db
               .update(products)
-              .set({
-                ...transformedProduct,
-                updatedAt: new Date(),
-              })
+              .set(sanitizedProduct)
               .where(eq(products.id, existing.id))
               .returning();
             savedProduct = updated;
@@ -405,9 +464,41 @@ export async function GET(request: NextRequest) {
               throw new Error('Name is required but is empty');
             }
             
+            // Filter to only include fields that exist in the schema
+            // Exclude fields with defaults (createdAt, updatedAt) - let the database handle them
+            const validFields = [
+              'source', 'name', 'description', 'price', 'brand', 'productCode', 'externalId',
+              'category', 'subCategory', 'material', 'color', 'length', 'width', 'height',
+              'dimensions', 'weight', 'imageUrl', 'imageUrls', 'countryOfOrigin', 'eanCode',
+              'masterCode', 'masterId', 'typeOfProducts', 'commodityCode', 'numberOfPrintPositions',
+              'productName', 'categoryCode', 'productClass', 'lengthUnit', 'widthUnit', 'heightUnit',
+              'volume', 'volumeUnit', 'grossWeight', 'grossWeightUnit', 'netWeight', 'netWeightUnit',
+              'innerCartonQuantity', 'outerCartonQuantity', 'cartonLength', 'cartonLengthUnit',
+              'cartonWidth', 'cartonWidthUnit', 'cartonHeight', 'cartonHeightUnit', 'cartonVolume',
+              'cartonVolumeUnit', 'cartonGrossWeight', 'cartonGrossWeightUnit', 'shortDescription',
+              'longDescription', 'packagingAfterPrinting', 'printable', 'timestamp', 'rawData'
+            ];
+            
+            const sanitizedProduct: any = {};
+            validFields.forEach(field => {
+              const value = transformedProduct[field];
+              if (value !== null && value !== undefined) {
+                // Handle Date objects
+                if (value instanceof Date) {
+                  sanitizedProduct[field] = value;
+                } else if (typeof value === 'string') {
+                  sanitizedProduct[field] = String(value);
+                } else if (typeof value === 'number' && isFinite(value)) {
+                  sanitizedProduct[field] = value;
+                } else if (typeof value === 'boolean') {
+                  sanitizedProduct[field] = value;
+                }
+              }
+            });
+            
             const [inserted] = await db
               .insert(products)
-              .values(transformedProduct)
+              .values(sanitizedProduct)
               .returning();
             savedProduct = inserted;
             savedProducts.push(inserted);
@@ -416,21 +507,37 @@ export async function GET(request: NextRequest) {
             const errorMessage = insertError?.message || String(insertError);
             const errorCode = insertError?.code;
             
+            // Check for problematic values
+            const problematicFields: any = {};
+            Object.keys(transformedProduct).forEach(key => {
+              const val = transformedProduct[key];
+              if (val !== null && val !== undefined) {
+                if (typeof val === 'object' && !(val instanceof Date)) {
+                  problematicFields[key] = `Object: ${JSON.stringify(val).substring(0, 100)}`;
+                } else if (typeof val === 'function') {
+                  problematicFields[key] = 'Function';
+                } else if (String(val).includes('(') && String(val).includes(')')) {
+                  problematicFields[key] = `Contains parentheses: ${String(val).substring(0, 100)}`;
+                }
+              }
+            });
+            
             console.error('Database insert error:', {
               error: errorMessage,
               errorCode: errorCode,
-              product: {
-                name: transformedProduct.name,
-                source: transformedProduct.source,
-                productCode: transformedProduct.productCode,
-                externalId: transformedProduct.externalId,
-                hasDescription: !!transformedProduct.description,
-                hasBrand: !!transformedProduct.brand,
-              },
-              originalProductKeys: Object.keys(product),
-              originalProductSample: Object.keys(product).slice(0, 5).reduce((acc: any, key) => {
-                const val = product[key];
-                acc[key] = typeof val === 'object' ? '[Object]' : String(val).substring(0, 100);
+              problematicFields,
+              transformedProductKeys: Object.keys(transformedProduct),
+              transformedProductSample: Object.keys(transformedProduct).slice(0, 15).reduce((acc: any, key) => {
+                const val = transformedProduct[key];
+                if (val instanceof Date) {
+                  acc[key] = `Date(${val.toISOString()})`;
+                } else if (val === null || val === undefined) {
+                  acc[key] = val;
+                } else if (typeof val === 'object') {
+                  acc[key] = `[Object]`;
+                } else {
+                  acc[key] = typeof val === 'string' ? val.substring(0, 100) : val;
+                }
                 return acc;
               }, {}),
             });
@@ -440,9 +547,22 @@ export async function GET(request: NextRequest) {
 
         // Save variants and digital assets
         if (savedProduct) {
-          // Delete existing variants and assets for this product
-          await db.delete(digitalAssets).where(eq(digitalAssets.productId, savedProduct.id));
-          await db.delete(productVariants).where(eq(productVariants.productId, savedProduct.id));
+          try {
+            // Delete existing variants and assets for this product
+            // Note: digitalAssets and productVariants are imported tables, not the local arrays
+            console.log('Deleting existing variants and assets for product:', savedProduct.id);
+            await db.delete(digitalAssets).where(eq(digitalAssets.productId, savedProduct.id));
+            await db.delete(productVariants).where(eq(productVariants.productId, savedProduct.id));
+            console.log('Successfully deleted existing variants and assets');
+          } catch (deleteError: any) {
+            console.error('Error deleting existing variants/assets:', {
+              error: deleteError?.message,
+              productId: savedProduct.id,
+              errorCode: deleteError?.code,
+              stack: deleteError?.stack,
+            });
+            // Continue anyway - they might not exist or there might be a constraint issue
+          }
 
           // Save variants
           const variantIdMap: Record<string, string> = {}; // Maps variantId from API to database UUID
@@ -450,17 +570,44 @@ export async function GET(request: NextRequest) {
             // Save variant if it has variantId (SKU is optional, some variants might only have images)
             if (variant.variantId) {
               try {
+                // Sanitize variant data - only include valid fields
+                const sanitizedVariant: any = {
+                  productId: savedProduct.id,
+                  variantId: variant.variantId || null,
+                  sku: variant.sku || null,
+                  releaseDate: variant.releaseDate instanceof Date ? variant.releaseDate : null,
+                  discontinuedDate: variant.discontinuedDate instanceof Date ? variant.discontinuedDate : null,
+                  productPropositionCategory: variant.productPropositionCategory || null,
+                  categoryLevel1: variant.categoryLevel1 || null,
+                  categoryLevel2: variant.categoryLevel2 || null,
+                  categoryLevel3: variant.categoryLevel3 || null,
+                  colorDescription: variant.colorDescription || null,
+                  colorGroup: variant.colorGroup || null,
+                  plcStatus: variant.plcStatus || null,
+                  plcStatusDescription: variant.plcStatusDescription || null,
+                  gtin: variant.gtin || null,
+                  colorCode: variant.colorCode || null,
+                  pmsColor: variant.pmsColor || null,
+                };
+                
+                // Remove undefined and null values
+                Object.keys(sanitizedVariant).forEach(key => {
+                  if (sanitizedVariant[key] === undefined || sanitizedVariant[key] === null) {
+                    delete sanitizedVariant[key];
+                  }
+                });
+                
                 const [savedVariant] = await db
                   .insert(productVariants)
-                  .values({
-                    ...variant,
-                    productId: savedProduct.id,
-                  })
+                  .values(sanitizedVariant)
                   .returning();
                 variantIdMap[variant.variantId] = savedVariant.id;
                 console.log(`Saved variant ${variant.variantId} -> ${savedVariant.id} for product ${savedProduct.id}`);
-              } catch (variantError) {
-                console.error('Error saving variant:', variantError, variant);
+              } catch (variantError: any) {
+                console.error('Error saving variant:', {
+                  error: variantError?.message || String(variantError),
+                  variant: variant,
+                });
               }
             } else {
               console.warn('Skipping variant without variantId:', variant);
@@ -468,9 +615,9 @@ export async function GET(request: NextRequest) {
           }
 
           // Save digital assets
-          console.log(`Saving ${digitalAssets.length} digital assets for product ${savedProduct.id}`, {
+          console.log(`Saving ${assetsToSave.length} digital assets for product ${savedProduct.id}`, {
             variantIdMap,
-            assets: digitalAssets.map(a => ({
+            assets: assetsToSave.map(a => ({
               url: a.url,
               variantId: a.variantId,
               type: a.type,
@@ -478,7 +625,7 @@ export async function GET(request: NextRequest) {
             })),
           });
           
-          for (const asset of digitalAssets) {
+          for (const asset of assetsToSave) {
             if (asset.url) {
               try {
                 const dbVariantId = asset.variantId && variantIdMap[asset.variantId] ? variantIdMap[asset.variantId] : null;

@@ -1,4 +1,4 @@
-cut /**
+/**
  * Midocean API Client
  * 
  * Client for interacting with Midocean REST API endpoints

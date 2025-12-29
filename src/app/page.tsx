@@ -81,7 +81,7 @@ export default function Home() {
       <div className="max-w-4xl mx-auto">
         <header className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            🚀 Next.js + Tailwind + Drizzle + PostgreSQL
+            🚀 Next.js + Tailwind + Drizzle + SQLite
           </h1>
           <p className="text-xl text-gray-600 mb-6">
             A modern full-stack setup ready for development
@@ -225,9 +225,9 @@ export default function Home() {
                 <p className="text-sm text-gray-600">Type-safe queries</p>
               </Card>
               <Card className="text-center p-4">
-                <div className="text-2xl mb-2">🐘</div>
-                <h3 className="font-semibold text-gray-800">PostgreSQL</h3>
-                <p className="text-sm text-gray-600">Docker container</p>
+                <div className="text-2xl mb-2">🗄️</div>
+                <h3 className="font-semibold text-gray-800">SQLite</h3>
+                <p className="text-sm text-gray-600">Single container</p>
               </Card>
             </div>
           </CardContent>
