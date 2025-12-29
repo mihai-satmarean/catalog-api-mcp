@@ -46,14 +46,17 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
       "command": "node",
       "args": ["/Users/relaxZone/Projects/BMAC-demo-start/bmac-mcp-server/dist/src/index.js"],
       "env": {
-        "DATABASE_URL": "postgresql://postgres:password@localhost:5432/bmac_demo"
+        "DATABASE_URL": "/Users/relaxZone/Projects/BMAC-demo-start/sqlite.db"
       }
     }
   }
 }
 ```
 
-**Important**: Replace the path with your actual absolute path!
+**Important**: 
+- Replace the path with your actual absolute path
+- Set `DATABASE_URL` to the path of your SQLite database file (absolute path recommended)
+- The MCP server uses SQLite, so ensure the database file path is accessible
 
 ### 3. Restart Claude Desktop
 
@@ -109,8 +112,9 @@ npm run build
 If Claude Desktop doesn't recognize the server:
 
 1. Check that the path in config is absolute and correct
-2. Verify `DATABASE_URL` is set correctly
+2. Verify `DATABASE_URL` points to your SQLite database file (use absolute path)
 3. Ensure the server builds without errors: `npm run build`
 4. Check Claude Desktop logs for errors
 5. Make sure you restarted Claude Desktop after configuration changes
+6. Ensure the SQLite database file exists and is accessible
 

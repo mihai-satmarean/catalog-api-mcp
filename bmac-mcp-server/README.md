@@ -24,10 +24,10 @@ The server will automatically look for `.env.local` in the parent directory (`BM
 Alternatively, you can set the `DATABASE_URL` environment variable directly when running the server:
 
 ```env
-DATABASE_URL="postgresql://postgres:password@localhost:5432/bmac_demo"
+DATABASE_URL="./sqlite.db"
 ```
 
-**Note**: When configuring Claude Desktop, you should set `DATABASE_URL` in the `env` section of the configuration (see Usage section below).
+**Note**: When configuring Claude Desktop, you should set `DATABASE_URL` in the `env` section of the configuration (see Usage section below). The MCP server uses SQLite, so `DATABASE_URL` should point to the SQLite database file path (relative or absolute).
 
 ## Building
 

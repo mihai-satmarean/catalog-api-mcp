@@ -1,21 +1,30 @@
-import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
+import { drizzle } from 'drizzle-orm/better-sqlite3';
+import Database from 'better-sqlite3';
 import * as schema from './schema.js';
+import { dirname } from 'path';
+import { mkdirSync } from 'fs';
 
 // Create the connection
 // Note: dotenv.config() is called in index.ts before this module is imported
 // The connection is initialized lazily when db is first accessed
 
 let dbInstance: ReturnType<typeof drizzle> | null = null;
+let sqliteInstance: Database.Database | null = null;
 
 function initializeDb() {
   if (!dbInstance) {
-    const connString = process.env.DATABASE_URL;
-    if (!connString) {
-      throw new Error('DATABASE_URL environment variable is required. Make sure .env.local exists in the parent directory (BMAC-demo-start/.env.local) or set DATABASE_URL in your environment.');
+    const dbPath = process.env.DATABASE_URL || './sqlite.db';
+    
+    // Ensure the directory exists
+    try {
+      const dbDir = dirname(dbPath);
+      mkdirSync(dbDir, { recursive: true });
+    } catch (error) {
+      // Directory might already exist, ignore error
     }
-    const client = postgres(connString);
-    dbInstance = drizzle(client, { schema });
+    
+    sqliteInstance = new Database(dbPath);
+    dbInstance = drizzle(sqliteInstance, { schema });
   }
   return dbInstance;
 }

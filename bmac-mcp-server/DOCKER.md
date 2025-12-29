@@ -13,17 +13,20 @@ docker build -t bmac-mcp-server .
 
 ```bash
 docker run --rm -it \
-  -e DATABASE_URL="postgresql://postgres:password@host.docker.internal:5433/bmac_demo_start" \
+  -v /path/to/sqlite.db:/app/data/sqlite.db \
+  -e DATABASE_URL="/app/data/sqlite.db" \
   bmac-mcp-server
 ```
+
+**Note**: Replace `/path/to/sqlite.db` with the actual path to your SQLite database file on the host machine.
 
 ### Using Docker Compose
 
 ```bash
 # Create a .env file with your DATABASE_URL
-echo "DATABASE_URL=postgresql://postgres:password@host.docker.internal:5433/bmac_demo_start" > .env
+echo "DATABASE_URL=/app/data/sqlite.db" > .env
 
-# Start the container
+# Start the container (make sure to mount the SQLite database file)
 docker-compose up -d
 
 # Access the container shell (with nano editor)
@@ -48,8 +51,10 @@ Since MCP servers communicate via stdio, you can use the Docker container with M
         "run",
         "--rm",
         "-i",
+        "-v",
+        "/path/to/sqlite.db:/app/data/sqlite.db",
         "-e",
-        "DATABASE_URL=postgresql://postgres:password@host.docker.internal:5433/bmac_demo_start",
+        "DATABASE_URL=/app/data/sqlite.db",
         "bmac-mcp-server"
       ]
     }
@@ -70,8 +75,10 @@ Similar to Claude Desktop, configure Cursor to use Docker:
         "run",
         "--rm",
         "-i",
+        "-v",
+        "/path/to/sqlite.db:/app/data/sqlite.db",
         "-e",
-        "DATABASE_URL=postgresql://postgres:password@host.docker.internal:5433/bmac_demo_start",
+        "DATABASE_URL=/app/data/sqlite.db",
         "bmac-mcp-server"
       ]
     }
@@ -86,7 +93,8 @@ For development, you can mount the source code:
 ```bash
 docker run --rm -it \
   -v $(pwd):/app \
-  -e DATABASE_URL="postgresql://postgres:password@host.docker.internal:5433/bmac_demo_start" \
+  -v /path/to/sqlite.db:/app/data/sqlite.db \
+  -e DATABASE_URL="/app/data/sqlite.db" \
   bmac-mcp-server \
   npm run dev
 ```
@@ -98,7 +106,8 @@ The container includes `nano` editor for file editing:
 ```bash
 # Start container in interactive mode
 docker run --rm -it \
-  -e DATABASE_URL="postgresql://postgres:password@host.docker.internal:5433/bmac_demo_start" \
+  -v /path/to/sqlite.db:/app/data/sqlite.db \
+  -e DATABASE_URL="/app/data/sqlite.db" \
   bmac-mcp-server \
   bash
 
@@ -109,7 +118,9 @@ nano dist/index.js
 ## Notes
 
 - The server communicates via stdio, so no ports need to be exposed
-- Use `host.docker.internal` to access the database running on the host machine
-- For production, consider using a proper database connection string pointing to your database service
+- SQLite is a file-based database, so you must mount the database file as a volume
+- Replace `/path/to/sqlite.db` with the actual path to your SQLite database file
+- The database file path inside the container is `/app/data/sqlite.db` by default
+- Ensure the mounted database file has proper read/write permissions
 - The container runs as a non-root user (`mcpuser`) for security
 

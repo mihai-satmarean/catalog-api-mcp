@@ -14,7 +14,7 @@ To use this MCP server with Claude Desktop, add the following to your Claude Des
       "command": "node",
       "args": ["/absolute/path/to/BMAC-demo-start/bmac-mcp-server/dist/index.js"],
       "env": {
-        "DATABASE_URL": "postgresql://postgres:password@localhost:5432/bmac_demo"
+        "DATABASE_URL": "/absolute/path/to/BMAC-demo-start/sqlite.db"
       }
     }
   }
@@ -23,7 +23,8 @@ To use this MCP server with Claude Desktop, add the following to your Claude Des
 
 **Important**: 
 - Use the absolute path to the compiled `dist/index.js` file
-- Make sure the `DATABASE_URL` matches your database configuration
+- Set `DATABASE_URL` to the path of your SQLite database file (can be relative or absolute)
+- The MCP server uses SQLite, so ensure the database file path is accessible
 - Restart Claude Desktop after making changes
 
 ## Testing the Server

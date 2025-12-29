@@ -24,7 +24,7 @@ Add the following configuration to your `mcp.json` file:
       "command": "node",
       "args": ["/Users/relaxZone/Projects/BMAC-demo-start/bmac-mcp-server/dist/index.js"],
       "env": {
-        "DATABASE_URL": "postgresql://postgres:password@localhost:5432/bmac_demo"
+        "DATABASE_URL": "/Users/relaxZone/Projects/BMAC-demo-start/sqlite.db"
       }
     }
   }
@@ -33,7 +33,8 @@ Add the following configuration to your `mcp.json` file:
 
 **Important**: 
 - Replace `/Users/relaxZone/Projects/BMAC-demo-start` with your actual absolute path
-- Update the `DATABASE_URL` to match your database configuration
+- Set `DATABASE_URL` to the path of your SQLite database file (absolute path recommended)
+- The MCP server uses SQLite, so ensure the database file path is accessible
 
 ### 3. Restart Cursor
 
@@ -65,9 +66,10 @@ Try these example queries in Cursor's chat:
 
 ### Database Connection Issues
 
-1. **Verify DATABASE_URL**: Make sure it matches your `.env.local` file
+1. **Verify DATABASE_URL**: Make sure it points to your SQLite database file path
 2. **Test connection**: Run `npm run dev` in `bmac-mcp-server` to test the connection
-3. **Check database**: Ensure PostgreSQL is running and accessible
+3. **Check database**: Ensure the SQLite database file exists and is accessible
+4. **Database path**: Use absolute paths for `DATABASE_URL` to avoid path resolution issues
 
 ### Import Errors
 
