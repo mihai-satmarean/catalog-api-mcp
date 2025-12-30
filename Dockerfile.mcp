@@ -1,36 +1,57 @@
-# Production image using obot's base
-FROM ghcr.io/obot-platform/mcp-images-phat:main
+# Multi-stage build for catalog-api-mcp with nanobot and SQLite
 
-# Copy the pre-built application and dependencies from bmac-mcp-server directory
-COPY bmac-mcp-server/dist/index.js ./catalog-api-mcp
-COPY bmac-mcp-server/node_modules ./node_modules
-COPY bmac-mcp-server/package.json ./package.json
+# Stage 1: Build the MCP server
+FROM node:20-alpine AS builder
+
+WORKDIR /build
+
+# Copy MCP server files
+COPY bmac-mcp-server/package*.json ./
+RUN npm ci
+
+COPY bmac-mcp-server/ ./
+RUN npm run build
+
+# Stage 2: Final image with obot base
+FROM ghcr.io/obot-platform/mcp-images-phat:main
 
 USER root
 
-# Make executable
-RUN chmod +x ./catalog-api-mcp
+# Install SQLite runtime dependencies
+RUN apk add --no-cache \
+    sqlite \
+    sqlite-libs
 
-RUN cat > nanobot.yaml <<'EOF'
+# Copy the built MCP server
+WORKDIR /app
+COPY --from=builder /build/dist ./
+COPY --from=builder /build/node_modules ./node_modules
+COPY --from=builder /build/package.json ./package.json
+
+RUN chmod +x ./index.js
+
+# Create directory for SQLite database and ensure it's writable
+RUN mkdir -p /app/data && \
+    chmod 777 /app/data
+
+# Create nanobot.yaml configuration
+RUN cat > /app/nanobot.yaml <<'EOF'
 publish:
   mcpServers: [server]
 
 mcpServers:
   server:
     command: node
-    args: [./catalog-api-mcp]
+    args: [./index.js]
     env:
-      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_URL: /app/data/sqlite.db
+      PORT: ${PORT}
 EOF
 
-RUN chown 1000 nanobot.yaml
-
-# Set default PORT if not provided
+ENV DATABASE_URL=/app/data/sqlite.db
 ENV PORT=3000
 
-ENTRYPOINT ["sh", "-c"]
+EXPOSE 3000
 
-CMD ["nanobot run --listen-address :${PORT} -e DATABASE_URL ./nanobot.yaml"]
-
-USER 1000
-
+# Use nanobot to run the MCP server
+CMD ["/usr/local/bin/nanobot", "run", "--listen-address", ":3000", "/app/nanobot.yaml"]

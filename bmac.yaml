@@ -69,15 +69,15 @@ repoURL: https://github.com/mihai-satmarean/catalog-api-mcp
 
 env:
   - key: DATABASE_URL
-    name: Database Connection String
-    required: true
-    sensitive: true
-    description: PostgreSQL connection string (e.g., postgresql://user:password@host:port/database)
+    name: SQLite Database Path
+    required: false
+    sensitive: false
+    description: Path to SQLite database file (default /app/data/sqlite.db)
   - key: PORT
     name: Server Port
     required: false
     sensitive: false
-    description: Port for the MCP server (not used - server communicates via stdio)
+    description: Port for the MCP server (default 3000)
 
 runtime: containerized
 containerizedConfig:
@@ -86,5 +86,5 @@ containerizedConfig:
   path: '/mcp'
   env:
     PORT: "3000"
-    DATABASE_URL: "${DATABASE_URL}"
+    DATABASE_URL: "/app/data/sqlite.db"
 
