@@ -1,6 +1,6 @@
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { db, users, roles } from '../db/connection.js';
-import { eq, ilike, or } from 'drizzle-orm';
+import { eq, or, sql } from 'drizzle-orm';
 
 export const userTools: Tool[] = [
   {
@@ -66,10 +66,11 @@ export async function handleGetUsers(args: any) {
   const conditions = [];
   
   if (search) {
+    const searchPattern = `%${search.toLowerCase()}%`;
     conditions.push(
       or(
-        ilike(users.email, `%${search}%`),
-        ilike(users.name, `%${search}%`)
+        sql`LOWER(${users.email}) LIKE ${searchPattern}`,
+        sql`LOWER(${users.name}) LIKE ${searchPattern}`
       )!
     );
   }

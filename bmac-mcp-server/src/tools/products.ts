@@ -1,6 +1,6 @@
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { db, products, productVariants, digitalAssets } from '../db/connection.js';
-import { eq, ilike, and, or } from 'drizzle-orm';
+import { eq, like, and, or, sql } from 'drizzle-orm';
 
 export const productTools: Tool[] = [
   {
@@ -83,22 +83,25 @@ export async function handleGetProducts(args: any) {
   }
   
   if (search) {
+    const searchPattern = `%${search.toLowerCase()}%`;
     conditions.push(
       or(
-        ilike(products.name, `%${search}%`),
-        ilike(products.productCode, `%${search}%`),
-        ilike(products.masterCode, `%${search}%`),
-        ilike(products.description, `%${search}%`)
+        sql`LOWER(${products.name}) LIKE ${searchPattern}`,
+        sql`LOWER(${products.productCode}) LIKE ${searchPattern}`,
+        sql`LOWER(${products.masterCode}) LIKE ${searchPattern}`,
+        sql`LOWER(${products.description}) LIKE ${searchPattern}`
       )!
     );
   }
   
   if (category) {
-    conditions.push(ilike(products.category, `%${category}%`));
+    const categoryPattern = `%${category.toLowerCase()}%`;
+    conditions.push(sql`LOWER(${products.category}) LIKE ${categoryPattern}`);
   }
   
   if (brand) {
-    conditions.push(ilike(products.brand, `%${brand}%`));
+    const brandPattern = `%${brand.toLowerCase()}%`;
+    conditions.push(sql`LOWER(${products.brand}) LIKE ${brandPattern}`);
   }
   
   let query = db.select().from(products);
@@ -201,17 +204,18 @@ export async function handleGetProductDetails(args: any) {
 
 export async function handleSearchProducts(args: any) {
   const { query, limit = 20 } = args;
+  const queryPattern = `%${query.toLowerCase()}%`;
   
   const results = await db
     .select()
     .from(products)
     .where(
       or(
-        ilike(products.name, `%${query}%`),
-        ilike(products.productCode, `%${query}%`),
-        ilike(products.masterCode, `%${query}%`),
-        ilike(products.description, `%${query}%`),
-        ilike(products.productName, `%${query}%`)
+        sql`LOWER(${products.name}) LIKE ${queryPattern}`,
+        sql`LOWER(${products.productCode}) LIKE ${queryPattern}`,
+        sql`LOWER(${products.masterCode}) LIKE ${queryPattern}`,
+        sql`LOWER(${products.description}) LIKE ${queryPattern}`,
+        sql`LOWER(${products.productName}) LIKE ${queryPattern}`
       )!
     )
     .limit(limit);

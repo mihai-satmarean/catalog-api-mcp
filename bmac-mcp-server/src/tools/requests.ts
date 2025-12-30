@@ -1,6 +1,6 @@
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { db, productRequests, products } from '../db/connection.js';
-import { eq, ilike, or } from 'drizzle-orm';
+import { eq, or } from 'drizzle-orm';
 
 export const requestTools: Tool[] = [
   {
