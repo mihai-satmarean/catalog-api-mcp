@@ -1,2 +1,48 @@
+# GitHub workflows and CI/CD
 .github/*
+
+# Scripts and utilities
 scripts/*
+
+# Application source code (Next.js)
+src/*
+
+# MCP Server source code
+bmac-mcp-server/*
+
+# Demo application
+bmac-demo/*
+
+# Database migrations
+drizzle/*
+
+# Build outputs
+dist/*
+build/*
+node_modules/*
+
+# Configuration files (not MCP catalogs)
+components.json
+docker-compose.yml
+docker-compose.*.yml
+Dockerfile*
+.dockerignore
+tsconfig.json
+eslint.config.mjs
+next.config.ts
+postcss.config.mjs
+drizzle.config.ts
+package.json
+package-lock.json
+*.sh
+
+# Documentation
+*.md
+!bmac.yaml
+!smithery.yaml
+
+# Public assets
+public/*
+
+# Environment files
+.env*

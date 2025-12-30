@@ -1,6 +1,6 @@
-name: BMAC MCP Server
+name: BMAC MCP Server (Standalone)
 description: |
-  A Model Context Protocol (MCP) server that provides comprehensive integration with BMAC Product Management System. Access and manage products, users, product requests, and query the product catalog from Midocean and XD Connects providers.
+  A Model Context Protocol (MCP) server that provides comprehensive integration with BMAC Product Management System. This standalone version includes an embedded PostgreSQL database for easy deployment and testing.
 
   ## Features
   - **Product Catalog Management**: Browse, search, and query products from multiple providers (Midocean, XD Connects)
@@ -8,14 +8,15 @@ description: |
   - **User Management**: View and manage users with role-based access control
   - **Product Requests**: Create and manage product requests with status tracking
   - **Advanced Search**: Search products by name, code, category, brand, or description
-  - **Database Integration**: Direct access to PostgreSQL database for real-time product data
+  - **Embedded Database**: PostgreSQL 15 included in the container (no external database needed)
 
   ## What you'll need to connect
-  **Required:**
-  - **DATABASE_URL**: PostgreSQL connection string for the BMAC database
+  **Nothing!** This standalone version includes everything needed:
+  - PostgreSQL database is embedded in the container
+  - Database is automatically initialized on first run
+  - Default credentials are pre-configured
 
-  **Optional:**
-  - Database connection can be configured via environment variable or .env.local file
+  **Note**: Database data is ephemeral by default. For persistent data, mount a volume at `/var/lib/postgresql/data`
 
 toolPreview:
   - name: get_products
@@ -68,23 +69,17 @@ icon: https://raw.githubusercontent.com/mihai-satmarean/catalog-api-mcp/main/pub
 repoURL: https://github.com/mihai-satmarean/catalog-api-mcp
 
 env:
-  - key: DATABASE_URL
-    name: Database Connection String
-    required: true
-    sensitive: true
-    description: PostgreSQL connection string (e.g., postgresql://user:password@host:port/database)
   - key: PORT
     name: Server Port
     required: false
     sensitive: false
-    description: Port for the MCP server (not used - server communicates via stdio)
+    description: Port for the MCP server (default 3000)
 
 runtime: containerized
 containerizedConfig:
-  image: 'ghcr.io/mihai-satmarean/catalog-api-mcp:latest'
+  image: 'ghcr.io/mihai-satmarean/catalog-api-mcp:standalone'
   port: 3000
   path: '/mcp'
   env:
     PORT: "3000"
-    DATABASE_URL: "${DATABASE_URL}"
 

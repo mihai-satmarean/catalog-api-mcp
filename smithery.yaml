@@ -1,0 +1,58 @@
+name: catalog-api-mcp
+displayName: Catalog API MCP Server
+description: Model Context Protocol server for BMAC Product Management System
+version: 1.0.0
+author: Mihai Satmarean
+homepage: https://github.com/mihai-satmarean/catalog-api-mcp
+license: MIT
+
+runtime: containerized
+
+containerizedConfig:
+  image: ghcr.io/mihai-satmarean/catalog-api-mcp:latest
+  port: 3000
+  path: /mcp
+  env:
+    PORT: "3000"
+
+env:
+  - name: DATABASE_URL
+    description: PostgreSQL connection string (e.g., postgresql://user:password@host:port/database)
+    required: true
+    secret: true
+  - name: PORT
+    description: Server port (default 3000)
+    required: false
+    default: "3000"
+
+categories:
+  - Product Management
+  - E-commerce
+  - Database
+  - Inventory Management
+
+keywords:
+  - mcp
+  - bmac
+  - products
+  - catalog
+  - inventory
+  - midocean
+  - xd-connects
+  - postgresql
+
+capabilities:
+  tools:
+    - get_products
+    - get_product_details
+    - search_products
+    - get_users
+    - get_user_details
+    - get_product_requests
+    - create_product_request
+  
+  resources:
+    - products
+    - users
+    - requests
+
