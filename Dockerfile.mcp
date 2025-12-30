@@ -5,12 +5,11 @@ FROM node:20-alpine AS builder
 
 WORKDIR /build
 
-# Copy MCP server files
-COPY bmac-mcp-server/package*.json ./
-RUN npm ci
-
+# Copy all MCP server files first (needed for prepare script)
 COPY bmac-mcp-server/ ./
-RUN npm run build
+
+# Install dependencies (this will also run the prepare/build script)
+RUN npm ci
 
 # Stage 2: Final image with obot base
 FROM ghcr.io/obot-platform/mcp-images-phat:main
