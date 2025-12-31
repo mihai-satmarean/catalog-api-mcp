@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "bmac": {
+      "command": "node",
+      "args": ["/Users/mihai/Documents/tech_workspace/clienti/skylite-tek/ai-workspace/mcp/catalog-api-mcp/bmac-mcp-server/dist/index.js"],
+      "env": {
+        "DATABASE_URL": "/Users/mihai/Documents/tech_workspace/clienti/skylite-tek/ai-workspace/mcp/catalog-api-mcp/sqlite.db"
+      }
+    }
+  }
+}
+

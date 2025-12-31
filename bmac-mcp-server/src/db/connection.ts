@@ -3,6 +3,7 @@ import Database from 'better-sqlite3';
 import * as schema from './schema.js';
 import { dirname } from 'path';
 import { mkdirSync } from 'fs';
+import { initializeDatabase } from './init.js';
 
 // Create the connection
 // Note: dotenv.config() is called in index.ts before this module is imported
@@ -24,6 +25,10 @@ function initializeDb() {
     }
     
     sqliteInstance = new Database(dbPath);
+    
+    // Initialize database schema if tables don't exist
+    initializeDatabase(sqliteInstance);
+    
     dbInstance = drizzle(sqliteInstance, { schema });
   }
   return dbInstance;

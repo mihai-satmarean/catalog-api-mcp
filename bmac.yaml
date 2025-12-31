@@ -8,11 +8,11 @@ description: |
   - **User Management**: View and manage users with role-based access control
   - **Product Requests**: Create and manage product requests with status tracking
   - **Advanced Search**: Search products by name, code, category, brand, or description
-  - **Database Integration**: Direct access to PostgreSQL database for real-time product data
+  - **Database Integration**: Direct access to SQLite database for real-time product data
 
   ## What you'll need to connect
-  **Required:**
-  - **DATABASE_URL**: PostgreSQL connection string for the BMAC database
+  **Optional:**
+  - **DATABASE_URL**: SQLite database file path (default: /app/data/sqlite.db)
 
   **Optional:**
   - Database connection can be configured via environment variable or .env.local file
