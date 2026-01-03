@@ -343,23 +343,24 @@ export async function handleSyncSuppliers(args: any) {
       for (const apiProduct of productsToImport) {
         try {
           // Transform Midocean API response to our product schema
+          // Midocean uses: product_name, short_description, long_description, product_class, etc.
           const productData = {
-            name: apiProduct.name || apiProduct.master_name || 'Unknown Product',
-            description: apiProduct.description || apiProduct.long_description || '',
-            price: parseFloat(apiProduct.pricelist?.[0]?.price || '0'),
+            name: apiProduct.product_name || 'Unknown Product',
+            description: apiProduct.short_description || apiProduct.long_description || '',
+            price: 0, // Midocean product feed doesn't include prices, need separate pricelist API
             source: 'midocean' as const,
             brand: apiProduct.brand || 'Midocean',
-            productCode: apiProduct.variant_code || apiProduct.master_code,
+            productCode: apiProduct.master_code, // master_code is the main product code
             masterCode: apiProduct.master_code,
-            category: apiProduct.commodity_group_description || 'General',
-            color: apiProduct.variant_name_addon || '',
-            material: apiProduct.main_material_group || '',
-            dimensions: `${apiProduct.product_width_cm || 0}x${apiProduct.product_length_cm || 0}x${apiProduct.product_height_cm || 0} cm`,
-            length: parseFloat(apiProduct.product_length_cm || '0'),
-            width: parseFloat(apiProduct.product_width_cm || '0'),
-            height: parseFloat(apiProduct.product_height_cm || '0'),
-            weight: parseFloat(apiProduct.product_net_weight_gr || '0'),
-            imageUrl: apiProduct.image_medium_url || apiProduct.image_low_url || '',
+            category: apiProduct.product_class || 'General',
+            color: '', // Color info is in variants array
+            material: apiProduct.material || '',
+            dimensions: apiProduct.dimensions || '',
+            length: parseFloat(apiProduct.length || '0'),
+            width: parseFloat(apiProduct.width || '0'),
+            height: parseFloat(apiProduct.height || '0'),
+            weight: parseFloat(apiProduct.net_weight || '0'),
+            imageUrl: '', // Images are in digital_assets or variants array
             countryOfOrigin: apiProduct.country_of_origin || '',
           };
           
