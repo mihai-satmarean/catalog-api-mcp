@@ -5,7 +5,7 @@ import { eq, like, and, or, sql } from 'drizzle-orm';
 export const productTools: Tool[] = [
   {
     name: 'import_products',
-    description: 'Import/create products in the catalog database. Use this to populate the database with products from Midocean, XD Connects or other sources. Accepts product details including name, code, dimensions, prices, images, and metadata.',
+    description: 'Import/create products in the catalog database from ALL suppliers (Midocean, XD Connects, etc.). Use this to populate the database with demo/test products or to add products from multiple sources at once. Can import products from all suppliers in a single call. Accepts product details including name, code, dimensions, prices, images, and metadata.',
     inputSchema: {
       type: 'object',
       properties: {
