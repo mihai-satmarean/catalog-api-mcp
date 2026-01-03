@@ -1,56 +1,74 @@
-# Multi-stage build for catalog-api-mcp with nanobot and SQLite
+# Multi-stage build for catalog-api-mcp using Obot's phat image
+# Reference: https://github.com/obot-platform/mcp-images
 
-# Stage 1: Build the MCP server
+# Stage 1: Build better-sqlite3 with proper tools
 FROM node:20-alpine AS builder
+
+# Install build dependencies for better-sqlite3
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    sqlite-dev
 
 WORKDIR /build
 
-# Copy all MCP server files first (needed for prepare script)
+# Copy all MCP server files
 COPY bmac-mcp-server/ ./
 
-# Install dependencies (this will also run the prepare/build script)
+# Install dependencies (this will compile better-sqlite3)
 RUN npm ci
 
-# Stage 2: Final image with obot base
-FROM ghcr.io/obot-platform/mcp-images-phat:main
+# Stage 2: Final image using Obot's phat image (has Node.js, npm, Python, etc.)
+FROM ghcr.io/obot-platform/mcp-images/phat:main
 
 USER root
 
-# Install SQLite runtime dependencies
-RUN apk add --no-cache \
-    sqlite \
-    sqlite-libs
-
-# Copy the built MCP server
 WORKDIR /app
-COPY --from=builder /build/dist ./
+
+# Copy the built application from builder
+COPY --from=builder /build/dist ./dist
 COPY --from=builder /build/node_modules ./node_modules
 COPY --from=builder /build/package.json ./package.json
 
-RUN chmod +x ./index.js
+# Copy required runtime libraries for better-sqlite3 native module
+# These are needed because better-sqlite3 was compiled against Alpine musl
+COPY --from=builder /usr/lib/libstdc++.so.6 /usr/lib/
+COPY --from=builder /usr/lib/libgcc_s.so.1 /usr/lib/
 
-# Create directory for SQLite database and ensure it's writable
-RUN mkdir -p /app/data && \
-    chmod 777 /app/data
+# Create data directory for SQLite database
+RUN mkdir -p /app/data && chown -R nanobot:nanobot /app/data
 
-# Create nanobot.yaml configuration
-RUN cat > /app/nanobot.yaml <<'EOF'
+# Create nanobot.yaml configuration (following Obot's hubspot example)
+RUN cat > /nanobot.yaml <<'EOF'
 publish:
   mcpServers: [server]
 
 mcpServers:
   server:
     command: node
-    args: [./index.js]
+    args: [/app/dist/index.js]
     env:
-      DATABASE_URL: /app/data/sqlite.db
-      PORT: ${PORT}
+      DATABASE_URL: ${DATABASE_URL}
+      NODE_ENV: production
 EOF
 
+RUN chown nanobot:nanobot /nanobot.yaml
+
+# Set default environment variables
 ENV DATABASE_URL=/app/data/sqlite.db
-ENV PORT=3000
+ENV NANOBOT_STATE=/app/data/nanobot.db
 
-EXPOSE 3000
+# Set working directory to /app
+WORKDIR /app
 
-# Use nanobot to run the MCP server
-CMD ["/usr/local/bin/nanobot", "run", "--listen-address", ":3000", "/app/nanobot.yaml"]
+# phat image uses nanobot user, not 1000
+RUN chown -R nanobot:nanobot /app
+
+USER nanobot
+
+# Use nanobot entrypoint (already in phat image)
+ENTRYPOINT ["nanobot"]
+
+# Listen on port 8099 (Obot standard for MCP servers)
+CMD ["run", "--listen-address", ":8099", "-e", "DATABASE_URL", "/nanobot.yaml"]

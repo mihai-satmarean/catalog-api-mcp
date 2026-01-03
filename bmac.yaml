@@ -82,9 +82,8 @@ env:
 runtime: containerized
 containerizedConfig:
   image: 'ghcr.io/mihai-satmarean/catalog-api-mcp:latest'
-  port: 3000
+  port: 8099
   path: '/mcp'
   env:
-    PORT: "3000"
     DATABASE_URL: "/app/data/sqlite.db"
 

@@ -122,7 +122,7 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error('BMAC MCP Server running on stdio');
+  // Server is now connected and ready
 }
 
 main().catch((error) => {

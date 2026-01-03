@@ -15,12 +15,11 @@ export function initializeDatabase(dbInstance: Database.Database) {
 
     // If tables don't exist, create them
     if (!result) {
-      console.log('Initializing database schema...');
+      // Database schema initialization happens silently
       createTables(dbInstance);
-      console.log('Database schema initialized successfully');
     }
   } catch (error) {
-    console.error('Error initializing database:', error);
+    // Silent error handling - errors will surface when database is used
     // Don't throw - allow app to continue even if init fails
     // The error will surface when trying to use the database
   }
