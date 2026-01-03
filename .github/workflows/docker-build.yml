@@ -90,3 +90,23 @@ jobs:
       - name: Image digest
         run: echo ${{ steps.meta.outputs.digest }}
 
+      - name: Setup kubectl
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: azure/setup-kubectl@v3
+
+      - name: Configure kubeconfig
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Restart deployment
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          echo "🔄 Restarting deployment to pick up new image..."
+          kubectl rollout restart deployment ms1x5d7c-2 -n obot-mcp
+          echo "⏳ Waiting for rollout to complete..."
+          kubectl rollout status deployment ms1x5d7c-2 -n obot-mcp --timeout=300s
+          echo "✅ Deployment restarted successfully!"
+
