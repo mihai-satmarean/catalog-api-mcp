@@ -18,8 +18,13 @@ description: |
   - Database connection can be configured via environment variable or .env.local file
 
 toolPreview:
+  - name: sync_suppliers
+    description: Synchronize and import ALL REAL products from supplier APIs (Midocean and XD Connects). Fetches complete product catalogs from live APIs.
+    params:
+      suppliers: Array of suppliers to sync - midocean, xd-connects, or all (optional, default all)
+      limit: Maximum number of products to import per supplier for testing (optional)
   - name: import_products
-    description: Import/create products in the catalog database from ALL suppliers (Midocean, XD Connects, etc.)
+    description: Import/create specific products in the catalog database. For bulk import from suppliers, use sync_suppliers instead.
     params:
       products: Array of products to import with details like name, price, dimensions, colors, etc. (required)
   - name: get_products
@@ -140,14 +145,14 @@ containerizedConfig:
   path: '/mcp'
   env:
     DATABASE_URL: "/app/data/sqlite.db"
-    MIDOCEAN_TEST_API_KEY: ""
-    MIDOCEAN_PROD_API_KEY: ""
-    MIDOCEAN_TEST_BASE_URL: ""
-    MIDOCEAN_PROD_BASE_URL: ""
-    XD_CONNECTS_BASE_URL: ""
-    XD_CONNECTS_PRODUCT_DATA_URL: ""
-    XD_CONNECTS_PRODUCT_PRICES_URL: ""
-    XD_CONNECTS_PRINT_DATA_URL: ""
-    XD_CONNECTS_PRINT_PRICES_URL: ""
-    XD_CONNECTS_STOCK_URL: ""
+    MIDOCEAN_TEST_API_KEY: "${MIDOCEAN_TEST_API_KEY}"
+    MIDOCEAN_PROD_API_KEY: "${MIDOCEAN_PROD_API_KEY}"
+    MIDOCEAN_TEST_BASE_URL: "${MIDOCEAN_TEST_BASE_URL}"
+    MIDOCEAN_PROD_BASE_URL: "${MIDOCEAN_PROD_BASE_URL}"
+    XD_CONNECTS_BASE_URL: "${XD_CONNECTS_BASE_URL}"
+    XD_CONNECTS_PRODUCT_DATA_URL: "${XD_CONNECTS_PRODUCT_DATA_URL}"
+    XD_CONNECTS_PRODUCT_PRICES_URL: "${XD_CONNECTS_PRODUCT_PRICES_URL}"
+    XD_CONNECTS_PRINT_DATA_URL: "${XD_CONNECTS_PRINT_DATA_URL}"
+    XD_CONNECTS_PRINT_PRICES_URL: "${XD_CONNECTS_PRINT_PRICES_URL}"
+    XD_CONNECTS_STOCK_URL: "${XD_CONNECTS_STOCK_URL}"
 
