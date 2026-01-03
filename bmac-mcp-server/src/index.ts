@@ -148,16 +148,16 @@ async function autoImportProducts() {
     const existingProducts = await db.select().from(products).limit(1);
     
     if (existingProducts.length === 0) {
-      console.error('[Auto-Import] Database is empty, importing products from suppliers...');
+      console.error('[Auto-Import] Database is empty, importing ALL products from suppliers...');
+      console.error('[Auto-Import] This may take a few minutes, running in background...');
       
-      // Import a limited set of products to avoid long startup times
-      // User can import more later via sync_suppliers tool
+      // Import ALL products from ALL suppliers (no limit)
       const result = await handleSyncSuppliers({ 
-        suppliers: ['all'], 
-        limit: 50  // Import 50 products per supplier for quick startup
+        suppliers: ['all']
+        // No limit - import all products
       });
       
-      console.error('[Auto-Import] Initial product import completed:', JSON.parse(result.content[0].text).imported, 'products imported');
+      console.error('[Auto-Import] Product import completed:', JSON.parse(result.content[0].text).imported, 'products imported');
     } else {
       console.error('[Auto-Import] Products already exist in database, skipping auto-import');
     }
