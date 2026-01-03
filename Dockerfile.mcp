@@ -24,6 +24,14 @@ USER root
 
 WORKDIR /app
 
+# Install build tools needed for better-sqlite3 compilation
+# phat uses Wolfi base, so we use apk
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    sqlite-dev
+
 # Copy package files first
 COPY bmac-mcp-server/package*.json ./
 
