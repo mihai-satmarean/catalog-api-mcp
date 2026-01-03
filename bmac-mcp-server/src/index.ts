@@ -8,12 +8,19 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Suppress dotenv output to prevent interference with MCP JSON protocol
+const originalConsoleLog = console.log;
+console.log = () => {};
+
 // Load environment variables from parent directory's .env.local
 const envPath = path.resolve(__dirname, '../../.env.local');
 dotenv.config({ path: envPath });
 
 // Also try loading from current directory as fallback
 dotenv.config({ path: '.env.local' });
+
+// Restore console.log
+console.log = originalConsoleLog;
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
