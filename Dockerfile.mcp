@@ -56,7 +56,6 @@ mcpServers:
     env:
       DATABASE_URL: ${DATABASE_URL}
       NODE_ENV: production
-    description: Product catalog management system for Midocean and XD Connects suppliers. Search products, get details, dimensions, prices, and create product requests.
 EOF
 
 # Set default environment variables
