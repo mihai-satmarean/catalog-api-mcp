@@ -31,6 +31,16 @@ import {
   ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 
+// Initialize database connection at startup
+import { db } from './db/connection.js';
+// Force database initialization by accessing it
+try {
+  // This will trigger the Proxy getter and initialize the database
+  const _ = db.query;
+} catch (error) {
+  console.error('Warning: Database initialization failed:', error);
+}
+
 // Import tools
 import { productTools, handleGetProducts, handleGetProductDetails, handleSearchProducts } from './tools/products.js';
 import { userTools, handleGetUsers, handleGetUserDetails } from './tools/users.js';
