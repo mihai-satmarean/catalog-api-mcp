@@ -1,50 +1,50 @@
 # Multi-stage build for catalog-api-mcp using Obot's phat image
 # Reference: https://github.com/obot-platform/mcp-images
 
-# Stage 1: Build TypeScript only (no native modules yet)
+# Stage 1: Build stage - compile TypeScript and better-sqlite3
 FROM node:20-alpine AS builder
 
-WORKDIR /build
-
-# Copy source files
-COPY bmac-mcp-server/src ./src
-COPY bmac-mcp-server/tsconfig.json ./
-COPY bmac-mcp-server/package*.json ./
-
-# Install only TypeScript and build tools
-RUN npm install typescript @types/node --save-dev
-
-# Build TypeScript to JavaScript
-RUN npx tsc
-
-# Stage 2: Final image using Obot's phat image (has Node.js, npm, Python, etc.)
-FROM ghcr.io/obot-platform/mcp-images/phat:main
-
-USER root
-
-WORKDIR /app
-
-# Install build tools needed for better-sqlite3 compilation
-# phat uses Wolfi base, so we use apk
+# Install build dependencies for better-sqlite3
 RUN apk add --no-cache \
     python3 \
     make \
     g++ \
     sqlite-dev
 
-# Copy package files first
+WORKDIR /build
+
+# Copy source and config files
+COPY bmac-mcp-server/src ./src
+COPY bmac-mcp-server/tsconfig.json ./
 COPY bmac-mcp-server/package*.json ./
 
-# Install ALL dependencies including better-sqlite3 (will compile for phat's environment)
-RUN npm ci --production
+# Install dependencies and build (compiles both TS and native modules)
+RUN npm ci
+RUN npm run build
 
-# Copy the built JavaScript from builder
+# Stage 2: Final runtime image
+FROM node:20-alpine
+
+USER root
+
+# Install runtime dependencies for better-sqlite3
+RUN apk add --no-cache \
+    sqlite-libs
+
+WORKDIR /app
+
+# Copy built application from builder
 COPY --from=builder /build/dist ./dist
+COPY --from=builder /build/node_modules ./node_modules
+COPY --from=builder /build/package.json ./package.json
+
+# Copy nanobot binary from phat image
+COPY --from=ghcr.io/obot-platform/mcp-images/phat:main /usr/local/bin/nanobot /usr/local/bin/nanobot
 
 # Create data directory for SQLite database
 RUN mkdir -p /app/data && chmod 777 /app/data
 
-# Create nanobot.yaml configuration (following Obot's hubspot example)
+# Create nanobot.yaml configuration
 RUN cat > /nanobot.yaml <<'EOF'
 publish:
   mcpServers: [server]
@@ -58,18 +58,16 @@ mcpServers:
       NODE_ENV: production
 EOF
 
-RUN chown nanobot:nanobot /nanobot.yaml
-
 # Set default environment variables
 ENV DATABASE_URL=/app/data/sqlite.db
 ENV NANOBOT_STATE=/app/data/nanobot.db
 
-# Ensure proper ownership
-RUN chown -R nanobot:nanobot /app
+# Switch to non-root user (alpine default is 1000)
+RUN chown -R 1000:1000 /app /nanobot.yaml
 
-USER nanobot
+USER 1000
 
-# Use nanobot entrypoint (already in phat image)
+# Use nanobot entrypoint
 ENTRYPOINT ["nanobot"]
 
 # Listen on port 8099 (Obot standard for MCP servers)
