@@ -313,9 +313,18 @@ export async function handleSyncSuppliers(args: any) {
         format: 'json',
       });
       
-      console.error(`[Sync Suppliers] Midocean API returned ${response?.products?.length || 0} products`);
+      // Debug: log response structure
+      console.error(`[Sync Suppliers] Midocean API response keys:`, Object.keys(response || {}));
+      console.error(`[Sync Suppliers] Midocean API response type:`, typeof response, Array.isArray(response) ? '(array)' : '(object)');
+      if (Array.isArray(response)) {
+        console.error(`[Sync Suppliers] Response is an array with ${response.length} items`);
+      } else if (response && typeof response === 'object') {
+        console.error(`[Sync Suppliers] First level keys sample:`, JSON.stringify(response).substring(0, 500));
+      }
       
-      const midoceanProducts = response?.products || [];
+      // Try different possible structures
+      const midoceanProducts = response?.products || response?.data?.products || (Array.isArray(response) ? response : []);
+      console.error(`[Sync Suppliers] Midocean API returned ${midoceanProducts.length} products`);
       const productsToImport = limit ? midoceanProducts.slice(0, limit) : midoceanProducts;
       
       for (const apiProduct of productsToImport) {
@@ -369,31 +378,36 @@ export async function handleSyncSuppliers(args: any) {
     try {
       const response: any = await getXDConnectsProductData();
       
-      console.error(`[Sync Suppliers] XD Connects API returned ${response?.Products?.length || 0} products`);
+      // Debug: log response structure
+      console.error(`[Sync Suppliers] XD Connects API response keys:`, Object.keys(response || {}));
+      console.error(`[Sync Suppliers] XD Connects API response type:`, typeof response, Array.isArray(response) ? '(array)' : '(object)');
       
-      const xdProducts = response?.Products || [];
+      // Try different possible structures (Products with capital P, products with lowercase, direct array)
+      const xdProducts = response?.Products || response?.products || (Array.isArray(response) ? response : []);
+      console.error(`[Sync Suppliers] XD Connects API returned ${xdProducts.length} products`);
       const productsToImport = limit ? xdProducts.slice(0, limit) : xdProducts;
       
       for (const apiProduct of productsToImport) {
         try {
           // Transform XD Connects API response to our product schema
+          // XD Connects uses different field names (ItemName, ItemCode, etc.)
           const productData = {
-            name: apiProduct.Name || 'Unknown Product',
-            description: apiProduct.Description || '',
-            price: parseFloat(apiProduct.RecommendedRetailPrice || '0'),
+            name: apiProduct.ItemName || 'Unknown Product',
+            description: apiProduct.LongDescription || '',
+            price: 0, // XD Connects doesn't include price in product feed, need separate price feed
             source: 'xd-connects' as const,
             brand: apiProduct.Brand || 'XD Connects',
-            productCode: apiProduct.Code || apiProduct.MasterCode,
-            masterCode: apiProduct.MasterCode,
-            category: apiProduct.CategoryName || 'General',
-            color: apiProduct.MainColor || '',
-            material: apiProduct.MainMaterial || '',
-            dimensions: `${apiProduct.ProductWidth || 0}x${apiProduct.ProductLength || 0}x${apiProduct.ProductHeight || 0} cm`,
-            length: parseFloat(apiProduct.ProductLength || '0'),
-            width: parseFloat(apiProduct.ProductWidth || '0'),
-            height: parseFloat(apiProduct.ProductHeight || '0'),
-            weight: parseFloat(apiProduct.ProductGrossWeight || '0'),
-            imageUrl: apiProduct.MainImageUrl || '',
+            productCode: apiProduct.ItemCode || apiProduct.ModelCode,
+            masterCode: apiProduct.ModelCode,
+            category: apiProduct.MainCategory || 'General',
+            color: apiProduct.Color || '',
+            material: apiProduct.Material || '',
+            dimensions: apiProduct.ItemDimensions || `${apiProduct.ItemWidthCM || 0}x${apiProduct.ItemLengthCM || 0}x${apiProduct.ItemHeightCM || 0} cm`,
+            length: parseFloat(apiProduct.ItemLengthCM || '0'),
+            width: parseFloat(apiProduct.ItemWidthCM || '0'),
+            height: parseFloat(apiProduct.ItemHeightCM || '0'),
+            weight: parseFloat(apiProduct.ItemWeightNetGr || '0'),
+            imageUrl: apiProduct.MainImage || '',
             countryOfOrigin: apiProduct.CountryOfOrigin || '',
           };
           
