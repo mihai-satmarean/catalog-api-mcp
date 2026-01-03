@@ -32,7 +32,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 
 // Initialize database connection at startup
-import { db } from './db/connection.js';
+import { db, products } from './db/connection.js';
 // Force database initialization by accessing it
 try {
   // This will trigger the Proxy getter and initialize the database
@@ -141,10 +141,45 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
   throw new Error(`Unknown resource URI: ${uri}`);
 });
 
+// Auto-import products on first startup
+async function autoImportProducts() {
+  try {
+    // Check if products table is empty
+    const existingProducts = await db.select().from(products).limit(1);
+    
+    if (existingProducts.length === 0) {
+      console.error('[Auto-Import] Database is empty, importing products from suppliers...');
+      
+      // Import a limited set of products to avoid long startup times
+      // User can import more later via sync_suppliers tool
+      const result = await handleSyncSuppliers({ 
+        suppliers: ['all'], 
+        limit: 50  // Import 50 products per supplier for quick startup
+      });
+      
+      console.error('[Auto-Import] Initial product import completed:', JSON.parse(result.content[0].text).imported, 'products imported');
+    } else {
+      console.error('[Auto-Import] Products already exist in database, skipping auto-import');
+    }
+  } catch (error) {
+    console.error('[Auto-Import] Failed to auto-import products:', error instanceof Error ? error.message : String(error));
+    // Don't fail startup if auto-import fails - products can be imported manually
+  }
+}
+
 // Start server
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
+  
+  // Auto-import products after server is ready (don't block startup)
+  // Run in background to avoid blocking MCP server initialization
+  setTimeout(() => {
+    autoImportProducts().catch(error => {
+      console.error('[Auto-Import] Background import failed:', error);
+    });
+  }, 1000); // Wait 1 second after server starts
+  
   // Server is now connected and ready
 }
 
