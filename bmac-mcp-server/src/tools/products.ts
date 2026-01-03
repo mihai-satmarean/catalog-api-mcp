@@ -1,6 +1,6 @@
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { db, products, productVariants, digitalAssets } from '../db/connection.js';
-import { eq, like, and, or, sql } from 'drizzle-orm';
+import { eq, like, and, or, sql, count } from 'drizzle-orm';
 import { getProducts as getMidoceanProducts } from '../lib/providers/midocean/client.js';
 import { getProductData as getXDConnectsProductData } from '../lib/providers/xd-connects/client.js';
 
@@ -125,8 +125,13 @@ export const productTools: Tool[] = [
         },
         limit: {
           type: 'number',
-          description: 'Maximum number of results',
+          description: 'Maximum number of results per page',
           default: 20,
+        },
+        offset: {
+          type: 'number',
+          description: 'Number of results to skip (for pagination)',
+          default: 0,
         },
       },
       required: ['query'],
@@ -135,7 +140,7 @@ export const productTools: Tool[] = [
 ];
 
 export async function handleGetProducts(args: any) {
-  const { source, search, category, brand, limit = 50 } = args;
+  const { source, search, category, brand, limit = 20, offset = 0 } = args;
   
   const conditions = [];
   
@@ -165,13 +170,23 @@ export async function handleGetProducts(args: any) {
     conditions.push(sql`LOWER(${products.brand}) LIKE ${brandPattern}`);
   }
   
-  let query = db.select().from(products);
+  // Get total count for pagination
+  let countQuery = db.select({ count: count() }).from(products);
+  if (conditions.length > 0) {
+    countQuery = countQuery.where(and(...conditions)!) as any;
+  }
+  const [{ count: totalCount }] = await countQuery;
   
+  // Get paginated results
+  let query = db.select().from(products);
   if (conditions.length > 0) {
     query = query.where(and(...conditions)!) as any;
   }
+  const results = await query.limit(limit).offset(offset);
   
-  const results = await query.limit(limit);
+  const totalPages = Math.ceil(totalCount / limit);
+  const currentPage = Math.floor(offset / limit) + 1;
+  const hasMore = offset + results.length < totalCount;
   
   return {
     content: [
@@ -179,7 +194,15 @@ export async function handleGetProducts(args: any) {
         type: 'text',
         text: JSON.stringify({
           products: results,
-          count: results.length,
+          pagination: {
+            total: totalCount,
+            count: results.length,
+            limit,
+            offset,
+            page: currentPage,
+            totalPages,
+            hasMore,
+          },
         }, null, 2),
       },
     ],
@@ -264,22 +287,34 @@ export async function handleGetProductDetails(args: any) {
 }
 
 export async function handleSearchProducts(args: any) {
-  const { query, limit = 20 } = args;
+  const { query, limit = 20, offset = 0 } = args;
   const queryPattern = `%${query.toLowerCase()}%`;
   
+  const searchCondition = or(
+    sql`LOWER(${products.name}) LIKE ${queryPattern}`,
+    sql`LOWER(${products.productCode}) LIKE ${queryPattern}`,
+    sql`LOWER(${products.masterCode}) LIKE ${queryPattern}`,
+    sql`LOWER(${products.description}) LIKE ${queryPattern}`,
+    sql`LOWER(${products.productName}) LIKE ${queryPattern}`
+  )!;
+  
+  // Get total count for pagination
+  const [{ count: totalCount }] = await db
+    .select({ count: count() })
+    .from(products)
+    .where(searchCondition);
+  
+  // Get paginated results
   const results = await db
     .select()
     .from(products)
-    .where(
-      or(
-        sql`LOWER(${products.name}) LIKE ${queryPattern}`,
-        sql`LOWER(${products.productCode}) LIKE ${queryPattern}`,
-        sql`LOWER(${products.masterCode}) LIKE ${queryPattern}`,
-        sql`LOWER(${products.description}) LIKE ${queryPattern}`,
-        sql`LOWER(${products.productName}) LIKE ${queryPattern}`
-      )!
-    )
-    .limit(limit);
+    .where(searchCondition)
+    .limit(limit)
+    .offset(offset);
+  
+  const totalPages = Math.ceil(totalCount / limit);
+  const currentPage = Math.floor(offset / limit) + 1;
+  const hasMore = offset + results.length < totalCount;
   
   return {
     content: [
@@ -287,8 +322,16 @@ export async function handleSearchProducts(args: any) {
         type: 'text',
         text: JSON.stringify({
           results,
-          count: results.length,
           query,
+          pagination: {
+            total: totalCount,
+            count: results.length,
+            limit,
+            offset,
+            page: currentPage,
+            totalPages,
+            hasMore,
+          },
         }, null, 2),
       },
     ],
