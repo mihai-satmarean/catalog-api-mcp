@@ -56,11 +56,25 @@ mcpServers:
     env:
       DATABASE_URL: ${DATABASE_URL}
       NODE_ENV: production
+      MIDOCEAN_TEST_API_KEY: ${MIDOCEAN_TEST_API_KEY}
+      MIDOCEAN_PROD_API_KEY: ${MIDOCEAN_PROD_API_KEY}
+      MIDOCEAN_TEST_BASE_URL: ${MIDOCEAN_TEST_BASE_URL}
+      MIDOCEAN_PROD_BASE_URL: ${MIDOCEAN_PROD_BASE_URL}
+      XD_CONNECTS_BASE_URL: ${XD_CONNECTS_BASE_URL}
+      XD_CONNECTS_PRODUCT_DATA_URL: ${XD_CONNECTS_PRODUCT_DATA_URL}
+      XD_CONNECTS_PRODUCT_PRICES_URL: ${XD_CONNECTS_PRODUCT_PRICES_URL}
+      XD_CONNECTS_PRINT_DATA_URL: ${XD_CONNECTS_PRINT_DATA_URL}
+      XD_CONNECTS_PRINT_PRICES_URL: ${XD_CONNECTS_PRINT_PRICES_URL}
+      XD_CONNECTS_STOCK_URL: ${XD_CONNECTS_STOCK_URL}
 EOF
 
 # Set default environment variables
 ENV DATABASE_URL=/app/data/sqlite.db
 ENV NANOBOT_STATE=/app/data/nanobot.db
+# Supplier API configuration (optional, fallback to hardcoded values if not provided)
+ENV MIDOCEAN_TEST_API_KEY=""
+ENV MIDOCEAN_PROD_API_KEY=""
+ENV XD_CONNECTS_PRODUCT_DATA_URL=""
 
 # Switch to non-root user (alpine default is 1000)
 RUN chown -R 1000:1000 /app /nanobot.yaml
@@ -71,4 +85,16 @@ USER 1000
 ENTRYPOINT ["nanobot"]
 
 # Listen on port 3000 (Obot deployment expects this port)
-CMD ["run", "--listen-address", ":3000", "-e", "DATABASE_URL", "/nanobot.yaml"]
+CMD ["run", "--listen-address", ":3000", \
+     "-e", "DATABASE_URL", \
+     "-e", "MIDOCEAN_TEST_API_KEY", \
+     "-e", "MIDOCEAN_PROD_API_KEY", \
+     "-e", "MIDOCEAN_TEST_BASE_URL", \
+     "-e", "MIDOCEAN_PROD_BASE_URL", \
+     "-e", "XD_CONNECTS_BASE_URL", \
+     "-e", "XD_CONNECTS_PRODUCT_DATA_URL", \
+     "-e", "XD_CONNECTS_PRODUCT_PRICES_URL", \
+     "-e", "XD_CONNECTS_PRINT_DATA_URL", \
+     "-e", "XD_CONNECTS_PRINT_PRICES_URL", \
+     "-e", "XD_CONNECTS_STOCK_URL", \
+     "/nanobot.yaml"]

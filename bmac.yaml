@@ -18,6 +18,10 @@ description: |
   - Database connection can be configured via environment variable or .env.local file
 
 toolPreview:
+  - name: import_products
+    description: Import/create products in the catalog database from ALL suppliers (Midocean, XD Connects, etc.)
+    params:
+      products: Array of products to import with details like name, price, dimensions, colors, etc. (required)
   - name: get_products
     description: Retrieves a list of products with optional filters by source, search term, category, or brand
     params:
@@ -78,12 +82,72 @@ env:
     required: false
     sensitive: false
     description: Port for the MCP server (default 3000)
+  - key: MIDOCEAN_TEST_API_KEY
+    name: Midocean Test API Key
+    required: false
+    sensitive: true
+    description: API key for Midocean test environment (optional, uses default if not provided)
+  - key: MIDOCEAN_PROD_API_KEY
+    name: Midocean Production API Key
+    required: false
+    sensitive: true
+    description: API key for Midocean production environment (optional, uses default if not provided)
+  - key: MIDOCEAN_TEST_BASE_URL
+    name: Midocean Test Base URL
+    required: false
+    sensitive: false
+    description: Base URL for Midocean test API (default https://apitest.midocean.com)
+  - key: MIDOCEAN_PROD_BASE_URL
+    name: Midocean Production Base URL
+    required: false
+    sensitive: false
+    description: Base URL for Midocean production API (default https://api.midocean.com)
+  - key: XD_CONNECTS_BASE_URL
+    name: XD Connects Base URL
+    required: false
+    sensitive: false
+    description: Base URL for XD Connects feeds (default https://feeds.xindao.com)
+  - key: XD_CONNECTS_PRODUCT_DATA_URL
+    name: XD Connects Product Data Feed URL
+    required: false
+    sensitive: true
+    description: Full URL for XD Connects product data feed (optional, uses default if not provided)
+  - key: XD_CONNECTS_PRODUCT_PRICES_URL
+    name: XD Connects Product Prices Feed URL
+    required: false
+    sensitive: true
+    description: Full URL for XD Connects product prices feed (optional, uses default if not provided)
+  - key: XD_CONNECTS_PRINT_DATA_URL
+    name: XD Connects Print Data Feed URL
+    required: false
+    sensitive: true
+    description: Full URL for XD Connects print data feed (optional, uses default if not provided)
+  - key: XD_CONNECTS_PRINT_PRICES_URL
+    name: XD Connects Print Prices Feed URL
+    required: false
+    sensitive: true
+    description: Full URL for XD Connects print prices feed (optional, uses default if not provided)
+  - key: XD_CONNECTS_STOCK_URL
+    name: XD Connects Stock Feed URL
+    required: false
+    sensitive: true
+    description: Full URL for XD Connects stock feed (optional, uses default if not provided)
 
 runtime: containerized
 containerizedConfig:
   image: 'ghcr.io/mihai-satmarean/catalog-api-mcp:latest'
-  port: 8099
+  port: 3000
   path: '/mcp'
   env:
     DATABASE_URL: "/app/data/sqlite.db"
+    MIDOCEAN_TEST_API_KEY: ""
+    MIDOCEAN_PROD_API_KEY: ""
+    MIDOCEAN_TEST_BASE_URL: ""
+    MIDOCEAN_PROD_BASE_URL: ""
+    XD_CONNECTS_BASE_URL: ""
+    XD_CONNECTS_PRODUCT_DATA_URL: ""
+    XD_CONNECTS_PRODUCT_PRICES_URL: ""
+    XD_CONNECTS_PRINT_DATA_URL: ""
+    XD_CONNECTS_PRINT_PRICES_URL: ""
+    XD_CONNECTS_STOCK_URL: ""
 
