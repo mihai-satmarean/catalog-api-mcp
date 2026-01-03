@@ -4,6 +4,43 @@ import { eq, like, and, or, sql } from 'drizzle-orm';
 
 export const productTools: Tool[] = [
   {
+    name: 'import_products',
+    description: 'Import/create products in the catalog database. Use this to populate the database with products from Midocean, XD Connects or other sources. Accepts product details including name, code, dimensions, prices, images, and metadata.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        products: {
+          type: 'array',
+          description: 'Array of products to import',
+          items: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', description: 'Product name' },
+              description: { type: 'string', description: 'Product description' },
+              price: { type: 'number', description: 'Product price' },
+              source: { type: 'string', description: 'Source: midocean, xd-connects, manual', enum: ['midocean', 'xd-connects', 'manual'] },
+              brand: { type: 'string', description: 'Brand name' },
+              productCode: { type: 'string', description: 'Product SKU/code' },
+              masterCode: { type: 'string', description: 'Master product code' },
+              category: { type: 'string', description: 'Product category' },
+              color: { type: 'string', description: 'Product color' },
+              material: { type: 'string', description: 'Product material' },
+              dimensions: { type: 'string', description: 'Dimensions string (e.g., "10x5x2 cm")' },
+              length: { type: 'number', description: 'Length in cm' },
+              width: { type: 'number', description: 'Width in cm' },
+              height: { type: 'number', description: 'Height in cm' },
+              weight: { type: 'number', description: 'Weight in grams' },
+              imageUrl: { type: 'string', description: 'Main image URL' },
+              countryOfOrigin: { type: 'string', description: 'Country of origin' },
+            },
+            required: ['name', 'source'],
+          },
+        },
+      },
+      required: ['products'],
+    },
+  },
+  {
     name: 'get_products',
     description: 'Search and browse product catalogs from Midocean and XD Connects suppliers. Find products by name (pens, pixuri, mugs, bags), category, brand, color, or search term. Returns product information including dimensions, prices, specifications, and availability.',
     inputSchema: {
@@ -228,6 +265,63 @@ export async function handleSearchProducts(args: any) {
           results,
           count: results.length,
           query,
+        }, null, 2),
+      },
+    ],
+  };
+}
+
+export async function handleImportProducts(args: any) {
+  const { products: productsToImport } = args;
+  
+  if (!productsToImport || !Array.isArray(productsToImport) || productsToImport.length === 0) {
+    throw new Error('products array is required and must not be empty');
+  }
+  
+  const imported = [];
+  const errors = [];
+  
+  for (const productData of productsToImport) {
+    try {
+      const result = await db.insert(products).values({
+        name: productData.name,
+        description: productData.description,
+        price: productData.price,
+        source: productData.source,
+        brand: productData.brand,
+        productCode: productData.productCode,
+        masterCode: productData.masterCode,
+        category: productData.category,
+        color: productData.color,
+        material: productData.material,
+        dimensions: productData.dimensions,
+        length: productData.length,
+        width: productData.width,
+        height: productData.height,
+        weight: productData.weight,
+        imageUrl: productData.imageUrl,
+        countryOfOrigin: productData.countryOfOrigin,
+      }).returning();
+      
+      imported.push(result[0]);
+    } catch (error) {
+      errors.push({
+        product: productData.name,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+  
+  return {
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify({
+          success: true,
+          imported: imported.length,
+          errors: errors.length,
+          products: imported,
+          errorDetails: errors,
         }, null, 2),
       },
     ],

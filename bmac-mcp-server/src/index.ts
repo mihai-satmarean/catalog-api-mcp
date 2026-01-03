@@ -42,7 +42,7 @@ try {
 }
 
 // Import tools
-import { productTools, handleGetProducts, handleGetProductDetails, handleSearchProducts } from './tools/products.js';
+import { productTools, handleGetProducts, handleGetProductDetails, handleSearchProducts, handleImportProducts } from './tools/products.js';
 import { userTools, handleGetUsers, handleGetUserDetails } from './tools/users.js';
 import { requestTools, handleGetProductRequests, handleCreateProductRequest } from './tools/requests.js';
 import { listProductResources, getProductResource } from './resources/products.js';
@@ -78,6 +78,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   try {
     switch (name) {
+      case 'import_products':
+        return await handleImportProducts(args || {});
+      
       case 'get_products':
         return await handleGetProducts(args || {});
       
