@@ -47,6 +47,17 @@ RUN mkdir -p /app/data && chmod 777 /app/data
 # Create nanobot.yaml configuration
 RUN cat > /nanobot.yaml <<'EOF'
 publish:
+  introduction:
+    mcpServer: server
+    prompt: |
+      This MCP server provides access to a product catalog management system.
+      It can search and retrieve products from suppliers like Midocean and XD Connects.
+      Use this when users ask about:
+      - Products, items, or merchandise
+      - Product catalogs from Midocean or XD Connects
+      - Product details (dimensions, prices, specifications)
+      - Product availability
+      - Creating product requests
   mcpServers: [server]
 
 mcpServers:
