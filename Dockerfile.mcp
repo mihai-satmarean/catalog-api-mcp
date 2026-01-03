@@ -70,5 +70,5 @@ USER 1000
 # Use nanobot entrypoint
 ENTRYPOINT ["nanobot"]
 
-# Listen on port 8099 (Obot standard for MCP servers)
-CMD ["run", "--listen-address", ":8099", "-e", "DATABASE_URL", "/nanobot.yaml"]
+# Listen on port 3000 (Obot deployment expects this port)
+CMD ["run", "--listen-address", ":3000", "-e", "DATABASE_URL", "/nanobot.yaml"]
