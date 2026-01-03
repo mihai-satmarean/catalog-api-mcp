@@ -5,7 +5,7 @@ import { eq, like, and, or, sql } from 'drizzle-orm';
 export const productTools: Tool[] = [
   {
     name: 'get_products',
-    description: 'Get a list of products with optional filters. Can filter by source (midocean, xd-connects), search term, category, or brand.',
+    description: 'Search and browse product catalogs from Midocean and XD Connects suppliers. Find products by name (pens, pixuri, mugs, bags), category, brand, color, or search term. Returns product information including dimensions, prices, specifications, and availability.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -36,7 +36,7 @@ export const productTools: Tool[] = [
   },
   {
     name: 'get_product_details',
-    description: 'Get detailed information about a specific product including variants, images, and digital assets.',
+    description: 'Get complete product information from Midocean or XD Connects including dimensions (măsurători), prices (prețuri), specifications, variants (colors, sizes), images, and digital assets. Use after finding a product to get full details.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -54,7 +54,7 @@ export const productTools: Tool[] = [
   },
   {
     name: 'search_products',
-    description: 'Search products by name, code, or description with fuzzy matching.',
+    description: 'Fuzzy search for products from Midocean and XD Connects catalogs. Search by keywords like "blue pens" (pixuri albastre), "red mug", product names, codes, or descriptions. Ideal for finding products when exact names are unknown.',
     inputSchema: {
       type: 'object',
       properties: {
