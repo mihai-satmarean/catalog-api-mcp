@@ -1,0 +1,20 @@
+{
+	"folders": [
+		{
+			"path": "../../../.."
+		},
+		{
+			"path": "../../../../../../../../Downloads/iso"
+		},
+		{
+			"path": "../../../../../archived/scoalainformala"
+		},
+		{
+			"path": "../../../../../../ansible_shared_roles/ansible_roles_forgery/role_obot"
+		},
+		{
+			"path": "../../../../../../shared_tech/ai_workspace/otto8"
+		}
+	],
+	"settings": {}
+}

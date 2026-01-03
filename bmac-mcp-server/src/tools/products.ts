@@ -1,6 +1,8 @@
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { db, products, productVariants, digitalAssets } from '../db/connection.js';
 import { eq, like, and, or, sql } from 'drizzle-orm';
+import { getProducts as getMidoceanProducts } from '../lib/providers/midocean/client.js';
+import { getProductData as getXDConnectsProductData } from '../lib/providers/xd-connects/client.js';
 
 export const productTools: Tool[] = [
   {
@@ -297,92 +299,122 @@ export async function handleSyncSuppliers(args: any) {
   const { suppliers = ['all'], limit } = args;
   const suppliersToSync = suppliers.includes('all') ? ['midocean', 'xd-connects'] : suppliers;
   
-  // Generate realistic demo products for each supplier
-  const demoProducts = [];
-  
-  if (suppliersToSync.includes('midocean')) {
-    // Midocean demo products
-    const midoceanProducts = [
-      { name: 'Classic ballpoint pen', code: 'MO1234-04', category: 'Writing', color: 'Blue', price: 1.5, length: 14, width: 1, weight: 10 },
-      { name: 'Metal twist pen', code: 'MO1235-06', category: 'Writing', color: 'Silver', price: 2.8, length: 13.8, width: 1.1, weight: 15 },
-      { name: 'Recycled paper pen', code: 'MO1236-13', category: 'Writing', color: 'Green', price: 1.2, length: 14.2, width: 0.9, weight: 8 },
-      { name: 'Cork notebook A5', code: 'MO2001-40', category: 'Notebooks', color: 'Natural', price: 5.5, length: 21, width: 14.8, weight: 180 },
-      { name: 'Cotton tote bag', code: 'MO3001-13', category: 'Bags', color: 'Natural', price: 3.2, length: 38, width: 42, weight: 120 },
-      { name: 'Canvas backpack', code: 'MO3002-03', category: 'Bags', color: 'Black', price: 12.5, length: 42, width: 30, weight: 350 },
-      { name: 'Ceramic mug 300ml', code: 'MO4001-06', category: 'Drinkware', color: 'White', price: 4.2, length: 9.5, width: 8, weight: 280 },
-      { name: 'Stainless steel bottle 500ml', code: 'MO4002-16', category: 'Drinkware', color: 'Blue', price: 8.5, length: 24, width: 7, weight: 210 },
-      { name: 'Bamboo desk organizer', code: 'MO5001-40', category: 'Office', color: 'Natural', price: 6.8, length: 18, width: 12, weight: 250 },
-      { name: 'Wireless charging pad', code: 'MO6001-03', category: 'Technology', color: 'Black', price: 15.2, length: 10, width: 10, weight: 85 },
-    ];
-    
-    for (const p of midoceanProducts.slice(0, limit || midoceanProducts.length)) {
-      demoProducts.push({
-        name: p.name,
-        description: `${p.name} from Midocean - high quality promotional product`,
-        price: p.price,
-        source: 'midocean',
-        brand: 'Midocean',
-        productCode: p.code,
-        masterCode: p.code.split('-')[0],
-        category: p.category,
-        color: p.color,
-        material: p.category === 'Writing' ? 'Plastic/Metal' : p.category === 'Bags' ? 'Cotton/Canvas' : 'Various',
-        dimensions: `${p.length}x${p.width} cm`,
-        length: p.length,
-        width: p.width,
-        weight: p.weight,
-        countryOfOrigin: 'China',
-      });
-    }
-  }
-  
-  if (suppliersToSync.includes('xd-connects')) {
-    // XD Connects demo products
-    const xdProducts = [
-      { name: 'Eco bamboo pen', code: 'XD1001', category: 'Writing', color: 'Natural', price: 1.8, length: 14, width: 1, weight: 12 },
-      { name: 'Aluminum pen set', code: 'XD1002', category: 'Writing', color: 'Silver', price: 4.5, length: 13.5, width: 1.2, weight: 25 },
-      { name: 'Recycled notebook', code: 'XD2001', category: 'Notebooks', color: 'Brown', price: 4.2, length: 21, width: 15, weight: 200 },
-      { name: 'Leather notebook A4', code: 'XD2002', category: 'Notebooks', color: 'Black', price: 12.8, length: 29.7, width: 21, weight: 420 },
-      { name: 'Non-woven bag', code: 'XD3001', category: 'Bags', color: 'Red', price: 2.1, length: 40, width: 35, weight: 80 },
-      { name: 'Jute shopping bag', code: 'XD3002', category: 'Bags', color: 'Natural', price: 5.8, length: 45, width: 38, weight: 180 },
-      { name: 'Travel mug 400ml', code: 'XD4001', category: 'Drinkware', color: 'Black', price: 6.5, length: 18, width: 8.5, weight: 220 },
-      { name: 'Glass water bottle 600ml', code: 'XD4002', category: 'Drinkware', color: 'Clear', price: 7.2, length: 22, width: 6.5, weight: 380 },
-      { name: 'USB power bank 5000mAh', code: 'XD6001', category: 'Technology', color: 'Black', price: 18.5, length: 12, width: 6, weight: 140 },
-      { name: 'Bluetooth speaker', code: 'XD6002', category: 'Technology', color: 'Blue', price: 22.8, length: 8, width: 8, weight: 250 },
-    ];
-    
-    for (const p of xdProducts.slice(0, limit || xdProducts.length)) {
-      demoProducts.push({
-        name: p.name,
-        description: `${p.name} from XD Connects - innovative promotional items`,
-        price: p.price,
-        source: 'xd-connects',
-        brand: 'XD Connects',
-        productCode: p.code,
-        category: p.category,
-        color: p.color,
-        material: p.category === 'Writing' ? 'Bamboo/Aluminum' : p.category === 'Technology' ? 'Plastic/Electronics' : 'Various',
-        dimensions: `${p.length}x${p.width} cm`,
-        length: p.length,
-        width: p.width,
-        weight: p.weight,
-        countryOfOrigin: 'Netherlands',
-      });
-    }
-  }
-  
-  // Import all generated products
   const imported = [];
   const errors = [];
   
-  for (const productData of demoProducts) {
+  console.error(`[Sync Suppliers] Starting REAL sync for: ${suppliersToSync.join(', ')}`);
+  
+  // Sync Midocean products (REAL API)
+  if (suppliersToSync.includes('midocean')) {
+    console.error('[Sync Suppliers] Fetching REAL products from Midocean API...');
     try {
-      const result = await db.insert(products).values(productData).returning();
-      imported.push(result[0]);
+      const response: any = await getMidoceanProducts({
+        environment: 'test',
+        format: 'json',
+      });
+      
+      console.error(`[Sync Suppliers] Midocean API returned ${response?.products?.length || 0} products`);
+      
+      const midoceanProducts = response?.products || [];
+      const productsToImport = limit ? midoceanProducts.slice(0, limit) : midoceanProducts;
+      
+      for (const apiProduct of productsToImport) {
+        try {
+          // Transform Midocean API response to our product schema
+          const productData = {
+            name: apiProduct.name || apiProduct.master_name || 'Unknown Product',
+            description: apiProduct.description || apiProduct.long_description || '',
+            price: parseFloat(apiProduct.pricelist?.[0]?.price || '0'),
+            source: 'midocean' as const,
+            brand: apiProduct.brand || 'Midocean',
+            productCode: apiProduct.variant_code || apiProduct.master_code,
+            masterCode: apiProduct.master_code,
+            category: apiProduct.commodity_group_description || 'General',
+            color: apiProduct.variant_name_addon || '',
+            material: apiProduct.main_material_group || '',
+            dimensions: `${apiProduct.product_width_cm || 0}x${apiProduct.product_length_cm || 0}x${apiProduct.product_height_cm || 0} cm`,
+            length: parseFloat(apiProduct.product_length_cm || '0'),
+            width: parseFloat(apiProduct.product_width_cm || '0'),
+            height: parseFloat(apiProduct.product_height_cm || '0'),
+            weight: parseFloat(apiProduct.product_net_weight_gr || '0'),
+            imageUrl: apiProduct.image_medium_url || apiProduct.image_low_url || '',
+            countryOfOrigin: apiProduct.country_of_origin || '',
+          };
+          
+          const result = await db.insert(products).values(productData).returning();
+          imported.push(result[0]);
+        } catch (error) {
+          errors.push({
+            product: apiProduct.name || apiProduct.variant_code || 'Unknown',
+            supplier: 'midocean',
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+      
+      console.error(`[Sync Suppliers] Midocean: imported ${imported.length}, errors ${errors.length}`);
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`[Sync Suppliers] Failed to fetch from Midocean API: ${errorMsg}`);
       errors.push({
-        product: productData.name,
-        error: error instanceof Error ? error.message : String(error),
+        supplier: 'midocean',
+        error: errorMsg,
+      });
+    }
+  }
+  
+  // Sync XD Connects products (REAL API)
+  if (suppliersToSync.includes('xd-connects')) {
+    console.error('[Sync Suppliers] Fetching REAL products from XD Connects API...');
+    try {
+      const response: any = await getXDConnectsProductData();
+      
+      console.error(`[Sync Suppliers] XD Connects API returned ${response?.Products?.length || 0} products`);
+      
+      const xdProducts = response?.Products || [];
+      const productsToImport = limit ? xdProducts.slice(0, limit) : xdProducts;
+      
+      for (const apiProduct of productsToImport) {
+        try {
+          // Transform XD Connects API response to our product schema
+          const productData = {
+            name: apiProduct.Name || 'Unknown Product',
+            description: apiProduct.Description || '',
+            price: parseFloat(apiProduct.RecommendedRetailPrice || '0'),
+            source: 'xd-connects' as const,
+            brand: apiProduct.Brand || 'XD Connects',
+            productCode: apiProduct.Code || apiProduct.MasterCode,
+            masterCode: apiProduct.MasterCode,
+            category: apiProduct.CategoryName || 'General',
+            color: apiProduct.MainColor || '',
+            material: apiProduct.MainMaterial || '',
+            dimensions: `${apiProduct.ProductWidth || 0}x${apiProduct.ProductLength || 0}x${apiProduct.ProductHeight || 0} cm`,
+            length: parseFloat(apiProduct.ProductLength || '0'),
+            width: parseFloat(apiProduct.ProductWidth || '0'),
+            height: parseFloat(apiProduct.ProductHeight || '0'),
+            weight: parseFloat(apiProduct.ProductGrossWeight || '0'),
+            imageUrl: apiProduct.MainImageUrl || '',
+            countryOfOrigin: apiProduct.CountryOfOrigin || '',
+          };
+          
+          const result = await db.insert(products).values(productData).returning();
+          imported.push(result[0]);
+        } catch (error) {
+          errors.push({
+            product: apiProduct.Name || apiProduct.Code || 'Unknown',
+            supplier: 'xd-connects',
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+      
+      console.error(`[Sync Suppliers] XD Connects: imported ${imported.length}, errors ${errors.length}`);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`[Sync Suppliers] Failed to fetch from XD Connects API: ${errorMsg}`);
+      errors.push({
+        supplier: 'xd-connects',
+        error: errorMsg,
       });
     }
   }
@@ -393,12 +425,12 @@ export async function handleSyncSuppliers(args: any) {
         type: 'text',
         text: JSON.stringify({
           success: true,
-          message: `Synced ${imported.length} demo products from ${suppliersToSync.join(', ')}`,
+          message: `Synced ${imported.length} REAL products from ${suppliersToSync.join(', ')} APIs`,
           imported: imported.length,
           errors: errors.length,
           suppliers: suppliersToSync,
-          note: 'These are demo products. For real product data, configure supplier API keys in environment variables.',
-          errorDetails: errors.length > 0 ? errors : undefined,
+          note: '✅ These are REAL products fetched from live supplier APIs (Midocean Test & XD Connects)',
+          errorDetails: errors.length > 0 ? errors.slice(0, 10) : undefined, // Show max 10 errors
         }, null, 2),
       },
     ],
