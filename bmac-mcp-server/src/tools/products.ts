@@ -327,6 +327,19 @@ export async function handleSyncSuppliers(args: any) {
       console.error(`[Sync Suppliers] Midocean API returned ${midoceanProducts.length} products`);
       const productsToImport = limit ? midoceanProducts.slice(0, limit) : midoceanProducts;
       
+      // Log first product structure for debugging
+      if (productsToImport.length > 0) {
+        console.error(`[Sync Suppliers] First Midocean product sample keys:`, Object.keys(productsToImport[0]).slice(0, 40));
+        console.error(`[Sync Suppliers] First Midocean product sample data:`, JSON.stringify({
+          variant_code: productsToImport[0].variant_code,
+          master_code: productsToImport[0].master_code,
+          name: productsToImport[0].name,
+          master_name: productsToImport[0].master_name,
+          brand: productsToImport[0].brand,
+          commodity_group_description: productsToImport[0].commodity_group_description
+        }));
+      }
+      
       for (const apiProduct of productsToImport) {
         try {
           // Transform Midocean API response to our product schema
