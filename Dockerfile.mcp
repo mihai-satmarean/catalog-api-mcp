@@ -1,23 +1,21 @@
 # Multi-stage build for catalog-api-mcp using Obot's phat image
 # Reference: https://github.com/obot-platform/mcp-images
 
-# Stage 1: Build better-sqlite3 with proper tools
+# Stage 1: Build TypeScript only (no native modules yet)
 FROM node:20-alpine AS builder
-
-# Install build dependencies for better-sqlite3
-RUN apk add --no-cache \
-    python3 \
-    make \
-    g++ \
-    sqlite-dev
 
 WORKDIR /build
 
-# Copy all MCP server files
-COPY bmac-mcp-server/ ./
+# Copy source files
+COPY bmac-mcp-server/src ./src
+COPY bmac-mcp-server/tsconfig.json ./
+COPY bmac-mcp-server/package*.json ./
 
-# Install dependencies (this will compile better-sqlite3)
-RUN npm ci
+# Install only TypeScript and build tools
+RUN npm install typescript @types/node --save-dev
+
+# Build TypeScript to JavaScript
+RUN npx tsc
 
 # Stage 2: Final image using Obot's phat image (has Node.js, npm, Python, etc.)
 FROM ghcr.io/obot-platform/mcp-images/phat:main
@@ -26,18 +24,17 @@ USER root
 
 WORKDIR /app
 
-# Copy the built application from builder
-COPY --from=builder /build/dist ./dist
-COPY --from=builder /build/node_modules ./node_modules
-COPY --from=builder /build/package.json ./package.json
+# Copy package files first
+COPY bmac-mcp-server/package*.json ./
 
-# Copy required runtime libraries for better-sqlite3 native module
-# These are needed because better-sqlite3 was compiled against Alpine musl
-COPY --from=builder /usr/lib/libstdc++.so.6 /usr/lib/
-COPY --from=builder /usr/lib/libgcc_s.so.1 /usr/lib/
+# Install ALL dependencies including better-sqlite3 (will compile for phat's environment)
+RUN npm ci --production
+
+# Copy the built JavaScript from builder
+COPY --from=builder /build/dist ./dist
 
 # Create data directory for SQLite database
-RUN mkdir -p /app/data && chown -R nanobot:nanobot /app/data
+RUN mkdir -p /app/data && chmod 777 /app/data
 
 # Create nanobot.yaml configuration (following Obot's hubspot example)
 RUN cat > /nanobot.yaml <<'EOF'
@@ -59,10 +56,7 @@ RUN chown nanobot:nanobot /nanobot.yaml
 ENV DATABASE_URL=/app/data/sqlite.db
 ENV NANOBOT_STATE=/app/data/nanobot.db
 
-# Set working directory to /app
-WORKDIR /app
-
-# phat image uses nanobot user, not 1000
+# Ensure proper ownership
 RUN chown -R nanobot:nanobot /app
 
 USER nanobot
