@@ -141,46 +141,16 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
   throw new Error(`Unknown resource URI: ${uri}`);
 });
 
-// Auto-import products on first startup
-async function autoImportProducts() {
-  try {
-    // Check if products table is empty
-    const existingProducts = await db.select().from(products).limit(1);
-    
-    if (existingProducts.length === 0) {
-      console.error('[Auto-Import] Database is empty, importing ALL products from suppliers...');
-      console.error('[Auto-Import] This may take a few minutes, running in background...');
-      
-      // Import ALL products from ALL suppliers (no limit)
-      const result = await handleSyncSuppliers({ 
-        suppliers: ['all']
-        // No limit - import all products
-      });
-      
-      console.error('[Auto-Import] Product import completed:', JSON.parse(result.content[0].text).imported, 'products imported');
-    } else {
-      console.error('[Auto-Import] Products already exist in database, skipping auto-import');
-    }
-  } catch (error) {
-    console.error('[Auto-Import] Failed to auto-import products:', error instanceof Error ? error.message : String(error));
-    // Don't fail startup if auto-import fails - products can be imported manually
-  }
-}
-
 // Start server
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
   
-  // Auto-import products after server is ready (don't block startup)
-  // Run in background to avoid blocking MCP server initialization
-  setTimeout(() => {
-    autoImportProducts().catch(error => {
-      console.error('[Auto-Import] Background import failed:', error);
-    });
-  }, 1000); // Wait 1 second after server starts
-  
   // Server is now connected and ready
+  // Note: Products can be imported manually using the 'sync_suppliers' tool
+  console.error('[BMAC MCP] Server started successfully');
+  console.error('[BMAC MCP] Database path:', process.env.DATABASE_URL || '/app/data/sqlite.db');
+  console.error('[BMAC MCP] Use "sync_suppliers" tool to import products from Midocean and XD Connects');
 }
 
 main().catch((error) => {

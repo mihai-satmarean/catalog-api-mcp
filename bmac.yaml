@@ -143,6 +143,10 @@ containerizedConfig:
   image: 'ghcr.io/mihai-satmarean/catalog-api-mcp:latest'
   port: 3000
   path: '/mcp'
+  storage:
+    enabled: true
+    size: 2Gi
+    mountPath: /app/data
   env:
     DATABASE_URL: "/app/data/sqlite.db"
     MIDOCEAN_TEST_API_KEY: "${MIDOCEAN_TEST_API_KEY}"

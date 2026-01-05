@@ -1,5 +1,5 @@
 # Production image using obot's base
-FROM ghcr.io/obot-platform/mcp-images-phat:main
+FROM ghcr.io/obot-platform/mcp-images-phat:v0.15.0
 
 # Copy the pre-built application and dependencies
 COPY dist/index.js ./bmac-mcp-server
