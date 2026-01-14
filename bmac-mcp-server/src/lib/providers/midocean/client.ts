@@ -198,3 +198,33 @@ export async function getProducts<T = any>(
   }
 }
 
+/**
+ * Print Pricelist API
+ * Retrieves print prices
+ */
+export async function getPrintPricelist<T = any>(
+  options: MidoceanRequestOptions = {}
+): Promise<T> {
+  console.error('[Print Pricelist API] Calling getPrintPricelist with options:', {
+    environment: options.environment || 'test',
+    format: options.format || 'json',
+    hasParams: !!options.params && Object.keys(options.params).length > 0,
+  });
+  return midoceanRequest<T>('/gateway/printpricelist/2.0', options);
+}
+
+/**
+ * Pricelist API
+ * Retrieves product prices
+ */
+export async function getPricelist<T = any>(
+  options: MidoceanRequestOptions = {}
+): Promise<T> {
+  console.error('[Pricelist API] Calling getPricelist with options:', {
+    environment: options.environment || 'test',
+    format: options.format || 'json',
+    hasParams: !!options.params && Object.keys(options.params).length > 0,
+  });
+  return midoceanRequest<T>('/gateway/pricelist/2.0', options);
+}
+

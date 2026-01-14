@@ -1,8 +1,8 @@
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { db, products, productVariants, digitalAssets } from '../db/connection.js';
 import { eq, like, and, or, sql, count } from 'drizzle-orm';
-import { getProducts as getMidoceanProducts } from '../lib/providers/midocean/client.js';
-import { getProductData as getXDConnectsProductData } from '../lib/providers/xd-connects/client.js';
+import { getProducts as getMidoceanProducts, getPricelist as getMidoceanPricelist, getPrintPricelist as getMidoceanPrintPricelist } from '../lib/providers/midocean/client.js';
+import { getProductData as getXDConnectsProductData, getProductPrices as getXDConnectsProductPrices } from '../lib/providers/xd-connects/client.js';
 
 export const productTools: Tool[] = [
   {
@@ -135,6 +135,84 @@ export const productTools: Tool[] = [
         },
       },
       required: ['query'],
+    },
+  },
+  {
+    name: 'get_xd_connects_prices',
+    description: 'Fetch product prices from XD Connects API. Returns pricing information including price tiers, unit prices, currency, and minimum order quantities. Use this to get up-to-date pricing data directly from the XD Connects feed.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        itemCode: {
+          type: 'string',
+          description: 'Optional: Filter by specific item code (product code)',
+        },
+        search: {
+          type: 'string',
+          description: 'Optional: Search for prices by item name or code',
+        },
+        limit: {
+          type: 'number',
+          description: 'Maximum number of prices to return',
+          default: 50,
+        },
+      },
+    },
+  },
+  {
+    name: 'get_midocean_prices',
+    description: 'Fetch product prices from Midocean API (pricelist endpoint). Returns pricing information including price tiers, unit prices, currency, and minimum order quantities. Use this to get up-to-date pricing data directly from the Midocean pricelist feed.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        productCode: {
+          type: 'string',
+          description: 'Optional: Filter by specific product code',
+        },
+        search: {
+          type: 'string',
+          description: 'Optional: Search for prices by product name or code',
+        },
+        environment: {
+          type: 'string',
+          enum: ['test', 'production'],
+          description: 'API environment to use',
+          default: 'test',
+        },
+        limit: {
+          type: 'number',
+          description: 'Maximum number of prices to return',
+          default: 50,
+        },
+      },
+    },
+  },
+  {
+    name: 'get_midocean_print_prices',
+    description: 'Fetch print prices from Midocean API (printpricelist endpoint). Returns print pricing information including price tiers, unit prices, currency, and minimum order quantities. Use this to get up-to-date print pricing data directly from the Midocean printpricelist feed.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        productCode: {
+          type: 'string',
+          description: 'Optional: Filter by specific product code',
+        },
+        search: {
+          type: 'string',
+          description: 'Optional: Search for prices by product name or code',
+        },
+        environment: {
+          type: 'string',
+          enum: ['test', 'production'],
+          description: 'API environment to use',
+          default: 'test',
+        },
+        limit: {
+          type: 'number',
+          description: 'Maximum number of prices to return',
+          default: 50,
+        },
+      },
     },
   },
 ];
@@ -563,5 +641,369 @@ export async function handleImportProducts(args: any) {
       },
     ],
   };
+}
+
+export async function handleGetXDConnectsPrices(args: any) {
+  const { itemCode, search, limit = 50 } = args;
+  
+  try {
+    // Fetch prices from XD Connects API
+    const pricesData = await getXDConnectsProductPrices();
+    
+    // Handle different response formats
+    let prices: any[] = [];
+    if (Array.isArray(pricesData)) {
+      prices = pricesData;
+    } else if (pricesData && typeof pricesData === 'object') {
+      // Try common response structures
+      prices = pricesData.Prices || pricesData.prices || pricesData.data || pricesData.Products || pricesData.products || [];
+      if (!Array.isArray(prices)) {
+        // If it's a single object, wrap it in an array
+        prices = [pricesData];
+      }
+    }
+    
+    // Filter by itemCode if provided
+    if (itemCode) {
+      prices = prices.filter((p: any) => 
+        (p.ItemCode || p.itemCode || '').toLowerCase() === itemCode.toLowerCase()
+      );
+    }
+    
+    // Filter by search term if provided
+    if (search) {
+      const searchLower = search.toLowerCase();
+      prices = prices.filter((p: any) => 
+        (p.ItemName || p.itemName || '').toLowerCase().includes(searchLower) ||
+        (p.ItemCode || p.itemCode || '').toLowerCase().includes(searchLower)
+      );
+    }
+    
+    // Limit results
+    const limitedPrices = prices.slice(0, limit);
+    
+    // Transform prices to a more readable format
+    const formattedPrices = limitedPrices.map((price: any) => ({
+      itemCode: price.ItemCode || price.itemCode || null,
+      itemName: price.ItemName || price.itemName || null,
+      currency: price.Currency || price.currency || null,
+      unitPriceNet: price.ItemPriceNet_Qty1 || price.itemPriceNet_Qty1 || null,
+      unitPriceGross: price.ItemPriceGross_Qty1 || price.itemPriceGross_Qty1 || null,
+      priceTiers: {
+        tier1: {
+          quantity: price.Qty1 || price.qty1 || null,
+          priceNet: price.ItemPriceNet_Qty1 || price.itemPriceNet_Qty1 || null,
+          priceGross: price.ItemPriceGross_Qty1 || price.itemPriceGross_Qty1 || null,
+        },
+        tier2: {
+          quantity: price.Qty2 || price.qty2 || null,
+          priceNet: price.ItemPriceNet_Qty2 || price.itemPriceNet_Qty2 || null,
+          priceGross: price.ItemPriceGross_Qty2 || price.itemPriceGross_Qty2 || null,
+        },
+        tier3: {
+          quantity: price.Qty3 || price.qty3 || null,
+          priceNet: price.ItemPriceNet_Qty3 || price.itemPriceNet_Qty3 || null,
+          priceGross: price.ItemPriceGross_Qty3 || price.itemPriceGross_Qty3 || null,
+        },
+        tier4: {
+          quantity: price.Qty4 || price.qty4 || null,
+          priceNet: price.ItemPriceNet_Qty4 || price.itemPriceNet_Qty4 || null,
+          priceGross: price.ItemPriceGross_Qty4 || price.itemPriceGross_Qty4 || null,
+        },
+      },
+      minimumOrderQuantity: price.MOQBlankOrder || price.moqBlankOrder || null,
+      lastModified: price.ItemPriceLastModifiedDateTime || price.itemPriceLastModifiedDateTime || null,
+    }));
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            success: true,
+            source: 'xd-connects',
+            count: formattedPrices.length,
+            total: prices.length,
+            prices: formattedPrices,
+            filters: {
+              itemCode: itemCode || null,
+              search: search || null,
+              limit,
+            },
+          }, null, 2),
+        },
+      ],
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            success: false,
+            error: errorMessage,
+            source: 'xd-connects',
+          }, null, 2),
+        },
+      ],
+      isError: true,
+    };
+  }
+}
+
+export async function handleGetMidoceanPrices(args: any) {
+  const { productCode, search, environment = 'test', limit = 50 } = args;
+  
+  try {
+    // Fetch prices from Midocean API
+    const pricesData = await getMidoceanPricelist({ environment, format: 'json' });
+    
+    // Handle Midocean API response structure
+    // The API returns: { PRICELIST_RESPONSE: { RETURN_STATUS, STATUS_TEXT, CUSTOMER_NUMBER, PRICELIST? } }
+    let prices: any[] = [];
+    let statusInfo: any = null;
+    
+    if (Array.isArray(pricesData)) {
+      prices = pricesData;
+    } else if (pricesData && typeof pricesData === 'object') {
+      // Check for PRICELIST_RESPONSE structure
+      if (pricesData.PRICELIST_RESPONSE) {
+        const response = pricesData.PRICELIST_RESPONSE;
+        statusInfo = {
+          returnStatus: response.RETURN_STATUS || response.return_status,
+          statusText: response.STATUS_TEXT || response.status_text,
+          customerNumber: response.CUSTOMER_NUMBER || response.customer_number,
+        };
+        
+        // Look for actual price data in PRICELIST array
+        if (response.PRICELIST && Array.isArray(response.PRICELIST)) {
+          prices = response.PRICELIST;
+        } else if (response.Pricelist && Array.isArray(response.Pricelist)) {
+          prices = response.Pricelist;
+        } else if (response.pricelist && Array.isArray(response.pricelist)) {
+          prices = response.pricelist;
+        }
+      } else {
+        // Try common response structures - check nested objects too
+        prices = pricesData.Prices || pricesData.prices || pricesData.data || pricesData.Products || pricesData.products || pricesData.items || 
+                 pricesData.Pricelist || pricesData.pricelist || pricesData.PRICELIST || pricesData.result || pricesData.results || [];
+        
+        // If still not an array, check if it's an object with array-like properties
+        if (!Array.isArray(prices)) {
+          // Check if the object itself might be a price entry
+          if (pricesData.ProductCode || pricesData.productCode || pricesData.Code || pricesData.code || pricesData.Price || pricesData.price) {
+            prices = [pricesData];
+          } else {
+            // Try to find any array property
+            const keys = Object.keys(pricesData);
+            for (const key of keys) {
+              if (Array.isArray(pricesData[key])) {
+                prices = pricesData[key];
+                break;
+              }
+            }
+            // If still no array found, return empty
+            if (!Array.isArray(prices)) {
+              prices = [];
+            }
+          }
+        }
+      }
+    }
+    
+    // Filter by productCode if provided
+    if (productCode) {
+      prices = prices.filter((p: any) => 
+        (p.ProductCode || p.productCode || p.code || p.Code || '').toLowerCase() === productCode.toLowerCase()
+      );
+    }
+    
+    // Filter by search term if provided
+    if (search) {
+      const searchLower = search.toLowerCase();
+      prices = prices.filter((p: any) => 
+        (p.ProductName || p.productName || p.name || p.Name || '').toLowerCase().includes(searchLower) ||
+        (p.ProductCode || p.productCode || p.code || p.Code || '').toLowerCase().includes(searchLower)
+      );
+    }
+    
+    // Limit results
+    const limitedPrices = prices.slice(0, limit);
+    
+    // Transform prices to a more readable format
+    // Midocean API structure may vary, so we'll try to extract common fields
+    const formattedPrices = limitedPrices.map((price: any) => ({
+      productCode: price.ProductCode || price.productCode || price.code || price.Code || null,
+      productName: price.ProductName || price.productName || price.name || price.Name || null,
+      currency: price.Currency || price.currency || price.CurrencyCode || price.currencyCode || null,
+      unitPrice: price.Price || price.price || price.UnitPrice || price.unitPrice || null,
+      unitPriceNet: price.PriceNet || price.priceNet || price.NetPrice || price.netPrice || price.UnitPriceNet || price.unitPriceNet || null,
+      unitPriceGross: price.PriceGross || price.priceGross || price.GrossPrice || price.grossPrice || price.UnitPriceGross || price.unitPriceGross || null,
+      priceTiers: price.PriceTiers || price.priceTiers || price.Tiers || price.tiers || null,
+      minimumOrderQuantity: price.MOQ || price.moq || price.MinimumOrderQuantity || price.minimumOrderQuantity || null,
+      rawData: price, // Include raw data for reference
+    }));
+    
+    // Include debug info to understand response structure
+    const debugInfo: any = {
+      responseType: Array.isArray(pricesData) ? 'array' : typeof pricesData,
+      responseIsNull: pricesData === null || pricesData === undefined,
+    };
+    
+    if (pricesData && typeof pricesData === 'object' && !Array.isArray(pricesData)) {
+      debugInfo.responseKeys = Object.keys(pricesData).slice(0, 20);
+      // Try to find array properties
+      const arrayKeys = Object.keys(pricesData).filter(key => Array.isArray(pricesData[key]));
+      if (arrayKeys.length > 0) {
+        debugInfo.arrayProperties = arrayKeys;
+        debugInfo.firstArrayLength = pricesData[arrayKeys[0]]?.length;
+      }
+      // Sample of response structure (first 1000 chars)
+      try {
+        debugInfo.sampleResponse = JSON.stringify(pricesData).substring(0, 1000);
+      } catch (e) {
+        debugInfo.sampleResponseError = 'Could not stringify response';
+      }
+    } else if (Array.isArray(pricesData)) {
+      debugInfo.arrayLength = pricesData.length;
+      if (pricesData.length > 0) {
+        debugInfo.firstItemKeys = Object.keys(pricesData[0]).slice(0, 10);
+      }
+    }
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            success: true,
+            source: 'midocean',
+            endpoint: 'pricelist',
+            environment,
+            count: formattedPrices.length,
+            total: prices.length,
+            prices: formattedPrices,
+            status: statusInfo,
+            filters: {
+              productCode: productCode || null,
+              search: search || null,
+              limit,
+            },
+            debug: debugInfo,
+          }, null, 2),
+        },
+      ],
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            success: false,
+            error: errorMessage,
+            source: 'midocean',
+            endpoint: 'pricelist',
+          }, null, 2),
+        },
+      ],
+      isError: true,
+    };
+  }
+}
+
+export async function handleGetMidoceanPrintPrices(args: any) {
+  const { productCode, search, environment = 'test', limit = 50 } = args;
+  
+  try {
+    // Fetch print prices from Midocean API
+    const pricesData = await getMidoceanPrintPricelist({ environment, format: 'json' });
+    
+    // Handle different response formats
+    let prices: any[] = [];
+    if (Array.isArray(pricesData)) {
+      prices = pricesData;
+    } else if (pricesData && typeof pricesData === 'object') {
+      // Try common response structures
+      prices = pricesData.Prices || pricesData.prices || pricesData.data || pricesData.Products || pricesData.products || pricesData.items || pricesData.PrintPrices || pricesData.printPrices || [];
+      if (!Array.isArray(prices)) {
+        // If it's a single object, wrap it in an array
+        prices = [pricesData];
+      }
+    }
+    
+    // Filter by productCode if provided
+    if (productCode) {
+      prices = prices.filter((p: any) => 
+        (p.ProductCode || p.productCode || p.code || p.Code || '').toLowerCase() === productCode.toLowerCase()
+      );
+    }
+    
+    // Filter by search term if provided
+    if (search) {
+      const searchLower = search.toLowerCase();
+      prices = prices.filter((p: any) => 
+        (p.ProductName || p.productName || p.name || p.Name || '').toLowerCase().includes(searchLower) ||
+        (p.ProductCode || p.productCode || p.code || p.Code || '').toLowerCase().includes(searchLower)
+      );
+    }
+    
+    // Limit results
+    const limitedPrices = prices.slice(0, limit);
+    
+    // Transform prices to a more readable format
+    // Midocean Print Pricelist API structure may vary, so we'll try to extract common fields
+    const formattedPrices = limitedPrices.map((price: any) => ({
+      productCode: price.ProductCode || price.productCode || price.code || price.Code || null,
+      productName: price.ProductName || price.productName || price.name || price.Name || null,
+      currency: price.Currency || price.currency || price.CurrencyCode || price.currencyCode || null,
+      printPrice: price.PrintPrice || price.printPrice || price.Price || price.price || null,
+      printPriceNet: price.PrintPriceNet || price.printPriceNet || price.NetPrice || price.netPrice || null,
+      printPriceGross: price.PrintPriceGross || price.printPriceGross || price.GrossPrice || price.grossPrice || null,
+      priceTiers: price.PriceTiers || price.priceTiers || price.Tiers || price.tiers || price.PrintPriceTiers || price.printPriceTiers || null,
+      minimumOrderQuantity: price.MOQ || price.moq || price.MinimumOrderQuantity || price.minimumOrderQuantity || null,
+      rawData: price, // Include raw data for reference
+    }));
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            success: true,
+            source: 'midocean',
+            endpoint: 'printpricelist',
+            environment,
+            count: formattedPrices.length,
+            total: prices.length,
+            prices: formattedPrices,
+            filters: {
+              productCode: productCode || null,
+              search: search || null,
+              limit,
+            },
+          }, null, 2),
+        },
+      ],
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            success: false,
+            error: errorMessage,
+            source: 'midocean',
+            endpoint: 'printpricelist',
+          }, null, 2),
+        },
+      ],
+      isError: true,
+    };
+  }
 }
 
