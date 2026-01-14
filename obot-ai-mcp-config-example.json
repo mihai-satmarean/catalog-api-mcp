@@ -1,0 +1,53 @@
+{
+  "mcpServers": {
+    "bmac": {
+      "command": "node",
+      "args": ["/absolute/path/to/BMAC-demo-start/bmac-mcp-server/dist/index.js"],
+      "env": {
+        "DATABASE_URL": "/absolute/path/to/BMAC-demo-start/sqlite.db"
+      }
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/absolute/path/to/BMAC-demo-start"],
+      "description": "File operations for product images, configs, and exports"
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "your-github-token-here"
+      },
+      "description": "Version control for product catalogs and code"
+    },
+    "brave-search": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+      "env": {
+        "BRAVE_API_KEY": "your-brave-api-key-here"
+      },
+      "description": "Web search for product research and competitor analysis"
+    },
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres"],
+      "env": {
+        "POSTGRES_CONNECTION_STRING": "postgresql://user:password@localhost:5432/dbname"
+      },
+      "description": "Advanced database queries (if using PostgreSQL)"
+    }
+  },
+  "_notes": {
+    "microsoft_office_365": "Configure through obot.ai UI: Connectors → Microsoft Office 365",
+    "ottokit": "Configure through obot.ai UI: Add OttoKit endpoint URL",
+    "nanobot": "Advanced framework - see OBOT_AI_MCP_SETUP.md for setup instructions",
+    "instructions": [
+      "1. Replace /absolute/path/to/BMAC-demo-start with your actual project path",
+      "2. Add your API keys/tokens where indicated",
+      "3. Microsoft Office 365 and OttoKit are configured through obot.ai's UI, not here",
+      "4. Remove any servers you don't need",
+      "5. Restart obot.ai after making changes"
+    ]
+  }
+}
+

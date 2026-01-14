@@ -42,7 +42,7 @@ try {
 }
 
 // Import tools
-import { productTools, handleGetProducts, handleGetProductDetails, handleSearchProducts, handleImportProducts, handleSyncSuppliers, handleGetXDConnectsPrices, handleGetMidoceanPrices, handleGetMidoceanPrintPrices } from './tools/products.js';
+import { productTools, handleGetProducts, handleGetProductDetails, handleSearchProducts, handleImportProducts, handleSyncSuppliers, handleGetXDConnectsPrices, handleGetMidoceanPrices, handleGetMidoceanPrintPrices, handleSyncXDConnectsPrices } from './tools/products.js';
 import { userTools, handleGetUsers, handleGetUserDetails } from './tools/users.js';
 import { requestTools, handleGetProductRequests, handleCreateProductRequest } from './tools/requests.js';
 import { listProductResources, getProductResource } from './resources/products.js';
@@ -101,6 +101,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       
       case 'get_midocean_print_prices':
         return await handleGetMidoceanPrintPrices(args || {});
+      
+      case 'sync_xd_connects_prices':
+        return await handleSyncXDConnectsPrices(args || {});
       
       case 'get_users':
         return await handleGetUsers(args || {});

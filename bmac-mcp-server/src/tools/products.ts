@@ -1,5 +1,5 @@
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
-import { db, products, productVariants, digitalAssets } from '../db/connection.js';
+import { db, products, productVariants, digitalAssets, productPrices } from '../db/connection.js';
 import { eq, like, and, or, sql, count } from 'drizzle-orm';
 import { getProducts as getMidoceanProducts, getPricelist as getMidoceanPricelist, getPrintPricelist as getMidoceanPrintPricelist } from '../lib/providers/midocean/client.js';
 import { getProductData as getXDConnectsProductData, getProductPrices as getXDConnectsProductPrices } from '../lib/providers/xd-connects/client.js';
@@ -210,6 +210,25 @@ export const productTools: Tool[] = [
         limit: {
           type: 'number',
           description: 'Maximum number of prices to return',
+          default: 50,
+        },
+      },
+    },
+  },
+  {
+    name: 'sync_xd_connects_prices',
+    description: 'Synchronize XD Connects product prices to the database. Fetches prices from XD Connects API and saves them efficiently using batch inserts. Optimized for obot.ai to prevent timeout errors. Use this instead of sync_suppliers when you only need to update prices.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        limit: {
+          type: 'number',
+          description: 'Maximum number of prices to sync (default: 500 to prevent overload). Set higher for full sync.',
+          default: 500,
+        },
+        batchSize: {
+          type: 'number',
+          description: 'Number of prices to insert per batch (default: 50 for optimal performance)',
           default: 50,
         },
       },
@@ -999,6 +1018,155 @@ export async function handleGetMidoceanPrintPrices(args: any) {
             error: errorMessage,
             source: 'midocean',
             endpoint: 'printpricelist',
+          }, null, 2),
+        },
+      ],
+      isError: true,
+    };
+  }
+}
+
+export async function handleSyncXDConnectsPrices(args: any) {
+  const { limit = 500, batchSize = 50 } = args;
+  
+  try {
+    console.error(`[Sync XD Connects Prices] Starting sync with limit: ${limit}, batchSize: ${batchSize}`);
+    
+    // Fetch prices from XD Connects API
+    const pricesData = await getXDConnectsProductPrices();
+    
+    // Handle different response formats
+    let prices: any[] = [];
+    if (Array.isArray(pricesData)) {
+      prices = pricesData;
+    } else if (pricesData && typeof pricesData === 'object') {
+      prices = pricesData.Prices || pricesData.prices || pricesData.data || pricesData.Products || pricesData.products || [];
+      if (!Array.isArray(prices)) {
+        prices = [pricesData];
+      }
+    }
+    
+    console.error(`[Sync XD Connects Prices] Fetched ${prices.length} prices from API`);
+    
+    // Limit the number of prices to process
+    const pricesToProcess = prices.slice(0, limit);
+    console.error(`[Sync XD Connects Prices] Processing ${pricesToProcess.length} prices`);
+    
+    // Transform prices to database format
+    const priceRecords = pricesToProcess.map((price: any) => {
+      const itemCode = price.ItemCode || price.itemCode || '';
+      return {
+        itemCode,
+        currency: price.Currency || price.currency || null,
+        priceTier1Qty: price.Qty1 || price.qty1 || null,
+        priceTier1Price: price.ItemPriceNet_Qty1 || price.itemPriceNet_Qty1 || null,
+        priceTier2Qty: price.Qty2 || price.qty2 || null,
+        priceTier2Price: price.ItemPriceNet_Qty2 || price.itemPriceNet_Qty2 || null,
+        priceTier3Qty: price.Qty3 || price.qty3 || null,
+        priceTier3Price: price.ItemPriceNet_Qty3 || price.itemPriceNet_Qty3 || null,
+        priceTier4Qty: price.Qty4 || price.qty4 || null,
+        priceTier4Price: price.ItemPriceNet_Qty4 || price.itemPriceNet_Qty4 || null,
+        priceTier5Qty: null, // XD Connects typically has 4 tiers
+        priceTier5Price: null,
+        unitPrice: price.ItemPriceNet_Qty1 || price.itemPriceNet_Qty1 || null,
+        minimumOrderQuantity: price.MOQBlankOrder || price.moqBlankOrder || null,
+        rawData: JSON.stringify(price),
+        updatedAt: new Date(),
+      };
+    }).filter((p: any) => p.itemCode); // Filter out records without itemCode
+    
+    console.error(`[Sync XD Connects Prices] Transformed ${priceRecords.length} price records`);
+    
+    // Use batch inserts for efficiency
+    let imported = 0;
+    let errors = 0;
+    const errorDetails: any[] = [];
+    
+    // Process in batches to avoid memory issues and provide progress
+    for (let i = 0; i < priceRecords.length; i += batchSize) {
+      const batch = priceRecords.slice(i, i + batchSize);
+      const batchNum = Math.floor(i / batchSize) + 1;
+      const totalBatches = Math.ceil(priceRecords.length / batchSize);
+      
+      try {
+        // Process each record in the batch
+        for (const priceRecord of batch) {
+          try {
+            // Check if price already exists
+            const existing = await db.select().from(productPrices)
+              .where(eq(productPrices.itemCode, priceRecord.itemCode))
+              .limit(1);
+            
+            if (existing.length > 0) {
+              // Update existing record
+              await db.update(productPrices)
+                .set({
+                  ...priceRecord,
+                  updatedAt: new Date(),
+                })
+                .where(eq(productPrices.itemCode, priceRecord.itemCode));
+            } else {
+              // Insert new record
+              await db.insert(productPrices).values({
+                ...priceRecord,
+                createdAt: new Date(),
+              });
+            }
+            imported++;
+          } catch (error) {
+            errors++;
+            errorDetails.push({
+              itemCode: priceRecord.itemCode,
+              error: error instanceof Error ? error.message : String(error),
+            });
+            // Continue with next record even if one fails
+          }
+        }
+        
+        console.error(`[Sync XD Connects Prices] Batch ${batchNum}/${totalBatches} completed: ${imported} imported, ${errors} errors`);
+      } catch (error) {
+        // If entire batch fails, log and continue
+        errors += batch.length;
+        errorDetails.push({
+          batch: batchNum,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        console.error(`[Sync XD Connects Prices] Batch ${batchNum} failed:`, error);
+      }
+    }
+    
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            success: true,
+            source: 'xd-connects',
+            operation: 'sync_prices',
+            imported,
+            errors,
+            totalProcessed: priceRecords.length,
+            totalAvailable: prices.length,
+            limit,
+            batchSize,
+            message: `Successfully synced ${imported} XD Connects prices to database${errors > 0 ? ` (${errors} errors)` : ''}`,
+            errorDetails: errors > 0 ? errorDetails.slice(0, 10) : undefined, // Show max 10 errors
+          }, null, 2),
+        },
+      ],
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`[Sync XD Connects Prices] Error: ${errorMessage}`);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            success: false,
+            error: errorMessage,
+            source: 'xd-connects',
+            operation: 'sync_prices',
           }, null, 2),
         },
       ],
