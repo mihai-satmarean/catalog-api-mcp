@@ -1055,103 +1055,121 @@ export async function handleSyncXDConnectsPrices(args: any) {
     // Transform prices to database format
     const priceRecords = pricesToProcess.map((price: any) => {
       const itemCode = price.ItemCode || price.itemCode || '';
+      const extractPrice = (val: any): number | null => {
+        if (val == null || val === '') return null;
+        const numVal = Number(val);
+        return isNaN(numVal) ? null : numVal;
+      };
+      
       return {
         itemCode,
         currency: price.Currency || price.currency || null,
-        priceTier1Qty: price.Qty1 || price.qty1 || null,
-        priceTier1Price: price.ItemPriceNet_Qty1 || price.itemPriceNet_Qty1 || null,
-        priceTier2Qty: price.Qty2 || price.qty2 || null,
-        priceTier2Price: price.ItemPriceNet_Qty2 || price.itemPriceNet_Qty2 || null,
-        priceTier3Qty: price.Qty3 || price.qty3 || null,
-        priceTier3Price: price.ItemPriceNet_Qty3 || price.itemPriceNet_Qty3 || null,
-        priceTier4Qty: price.Qty4 || price.qty4 || null,
-        priceTier4Price: price.ItemPriceNet_Qty4 || price.itemPriceNet_Qty4 || null,
-        priceTier5Qty: null, // XD Connects typically has 4 tiers
+        priceTier1Qty: price.Qty1 != null ? Math.round(Number(price.Qty1)) : null,
+        priceTier1Price: extractPrice(price.ItemPriceNet_Qty1),
+        priceTier2Qty: price.Qty2 != null ? Math.round(Number(price.Qty2)) : null,
+        priceTier2Price: extractPrice(price.ItemPriceNet_Qty2),
+        priceTier3Qty: price.Qty3 != null ? Math.round(Number(price.Qty3)) : null,
+        priceTier3Price: extractPrice(price.ItemPriceNet_Qty3),
+        priceTier4Qty: price.Qty4 != null ? Math.round(Number(price.Qty4)) : null,
+        priceTier4Price: extractPrice(price.ItemPriceNet_Qty4),
+        priceTier5Qty: null,
         priceTier5Price: null,
-        unitPrice: price.ItemPriceNet_Qty1 || price.itemPriceNet_Qty1 || null,
-        minimumOrderQuantity: price.MOQBlankOrder || price.moqBlankOrder || null,
+        unitPrice: extractPrice(price.ItemPriceNet_Qty1),
+        minimumOrderQuantity: price.MOQBlankOrder != null ? Math.round(Number(price.MOQBlankOrder)) : null,
         rawData: JSON.stringify(price),
-        updatedAt: new Date(),
       };
     }).filter((p: any) => p.itemCode); // Filter out records without itemCode
     
     console.error(`[Sync XD Connects Prices] Transformed ${priceRecords.length} price records`);
     
-    // Use batch inserts for efficiency
+    // Use batch inserts for efficiency - process in batches
     let imported = 0;
     let errors = 0;
-    const errorDetails: any[] = [];
     
-    // Process in batches to avoid memory issues and provide progress
+    // Get the underlying SQLite database instance for batch operations
+    const dbPath = process.env.DATABASE_URL || './sqlite.db';
+    const Database = (await import('better-sqlite3')).default;
+    const sqliteDb = new Database(dbPath);
+    
+    // Prepare statement for INSERT OR REPLACE (upsert) - optimized for performance
+    const now = Math.floor(Date.now() / 1000); // Unix timestamp in seconds
+    const stmt = sqliteDb.prepare(`
+      INSERT OR REPLACE INTO product_prices (
+        id, item_code, currency, price_tier1_qty, price_tier1_price,
+        price_tier2_qty, price_tier2_price, price_tier3_qty, price_tier3_price,
+        price_tier4_qty, price_tier4_price, price_tier5_qty, price_tier5_price,
+        unit_price, minimum_order_quantity, raw_data, created_at, updated_at
+      ) VALUES (
+        COALESCE((SELECT id FROM product_prices WHERE item_code = ?), lower(hex(randomblob(16)))),
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+        COALESCE((SELECT created_at FROM product_prices WHERE item_code = ?), ?),
+        ?
+      )
+    `);
+    
+    // Process in batches using transactions
     for (let i = 0; i < priceRecords.length; i += batchSize) {
       const batch = priceRecords.slice(i, i + batchSize);
-      const batchNum = Math.floor(i / batchSize) + 1;
-      const totalBatches = Math.ceil(priceRecords.length / batchSize);
       
-      try {
-        // Process each record in the batch
-        for (const priceRecord of batch) {
+      // Use transaction for batch insert
+      const insertBatch = sqliteDb.transaction((records: any[]) => {
+        let batchImported = 0;
+        let batchErrors = 0;
+        
+        for (const record of records) {
           try {
-            // Check if price already exists
-            const existing = await db.select().from(productPrices)
-              .where(eq(productPrices.itemCode, priceRecord.itemCode))
-              .limit(1);
-            
-            if (existing.length > 0) {
-              // Update existing record
-              await db.update(productPrices)
-                .set({
-                  ...priceRecord,
-                  updatedAt: new Date(),
-                })
-                .where(eq(productPrices.itemCode, priceRecord.itemCode));
-            } else {
-              // Insert new record
-              await db.insert(productPrices).values({
-                ...priceRecord,
-                createdAt: new Date(),
-              });
-            }
-            imported++;
+            stmt.run(
+              record.itemCode, // for COALESCE check in id
+              record.itemCode, // item_code
+              record.currency,
+              record.priceTier1Qty,
+              record.priceTier1Price,
+              record.priceTier2Qty,
+              record.priceTier2Price,
+              record.priceTier3Qty,
+              record.priceTier3Price,
+              record.priceTier4Qty,
+              record.priceTier4Price,
+              record.priceTier5Qty,
+              record.priceTier5Price,
+              record.unitPrice,
+              record.minimumOrderQuantity,
+              record.rawData,
+              record.itemCode, // for COALESCE check in created_at
+              now, // created_at if new
+              now, // updated_at
+            );
+            batchImported++;
           } catch (error) {
-            errors++;
-            errorDetails.push({
-              itemCode: priceRecord.itemCode,
-              error: error instanceof Error ? error.message : String(error),
-            });
-            // Continue with next record even if one fails
+            batchErrors++;
+            console.error(`[Sync XD Connects Prices] Error inserting ${record.itemCode}:`, error);
           }
         }
         
-        console.error(`[Sync XD Connects Prices] Batch ${batchNum}/${totalBatches} completed: ${imported} imported, ${errors} errors`);
+        return { imported: batchImported, errors: batchErrors };
+      });
+      
+      try {
+        const result = insertBatch(batch);
+        imported += result.imported;
+        errors += result.errors;
+        console.error(`[Sync XD Connects Prices] Batch ${Math.floor(i / batchSize) + 1} completed: ${result.imported} imported, ${result.errors} errors`);
       } catch (error) {
-        // If entire batch fails, log and continue
         errors += batch.length;
-        errorDetails.push({
-          batch: batchNum,
-          error: error instanceof Error ? error.message : String(error),
-        });
-        console.error(`[Sync XD Connects Prices] Batch ${batchNum} failed:`, error);
+        console.error(`[Sync XD Connects Prices] Batch failed:`, error);
       }
     }
+    
+    sqliteDb.close();
+    
+    // Return minimal response code: OK:count or PARTIAL:imported:errors or ERROR:message
+    const resultCode = errors === 0 ? `OK:${imported}` : `PARTIAL:${imported}:${errors}`;
     
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify({
-            success: true,
-            source: 'xd-connects',
-            operation: 'sync_prices',
-            imported,
-            errors,
-            totalProcessed: priceRecords.length,
-            totalAvailable: prices.length,
-            limit,
-            batchSize,
-            message: `Successfully synced ${imported} XD Connects prices to database${errors > 0 ? ` (${errors} errors)` : ''}`,
-            errorDetails: errors > 0 ? errorDetails.slice(0, 10) : undefined, // Show max 10 errors
-          }, null, 2),
+          text: resultCode,
         },
       ],
     };
@@ -1162,12 +1180,7 @@ export async function handleSyncXDConnectsPrices(args: any) {
       content: [
         {
           type: 'text',
-          text: JSON.stringify({
-            success: false,
-            error: errorMessage,
-            source: 'xd-connects',
-            operation: 'sync_prices',
-          }, null, 2),
+          text: `ERROR:${errorMessage.substring(0, 100)}`,
         },
       ],
       isError: true,
