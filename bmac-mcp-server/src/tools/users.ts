@@ -5,40 +5,24 @@ import { eq, or, sql } from 'drizzle-orm';
 export const userTools: Tool[] = [
   {
     name: 'get_users',
-    description: 'Get a list of users with optional filters by email, name, or role.',
+    description: 'List users by email, name, or role.',
     inputSchema: {
       type: 'object',
       properties: {
-        search: {
-          type: 'string',
-          description: 'Search term for user email or name',
-        },
-        roleId: {
-          type: 'string',
-          description: 'Filter by role ID',
-        },
-        limit: {
-          type: 'number',
-          description: 'Maximum number of users to return',
-          default: 50,
-        },
+        search: { type: 'string' },
+        roleId: { type: 'string' },
+        limit: { type: 'number', default: 50 },
       },
     },
   },
   {
     name: 'get_user_details',
-    description: 'Get detailed information about a specific user including their role.',
+    description: 'Get user details with role.',
     inputSchema: {
       type: 'object',
       properties: {
-        userId: {
-          type: 'string',
-          description: 'The UUID of the user',
-        },
-        email: {
-          type: 'string',
-          description: 'The email of the user',
-        },
+        userId: { type: 'string' },
+        email: { type: 'string' },
       },
     },
   },
