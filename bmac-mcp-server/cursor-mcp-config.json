@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "bmac": {
+      "command": "node",
+      "args": ["/Users/relaxZone/Projects/BMAC-demo-start/bmac-mcp-server/dist/index.js"],
+      "env": {
+        "DATABASE_URL": "/Users/relaxZone/Projects/BMAC-demo-start/sqlite.db"
+      }
+    }
+  }
+}
+

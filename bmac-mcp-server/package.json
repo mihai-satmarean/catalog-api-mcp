@@ -1,0 +1,50 @@
+{
+  "name": "catalog-api-mcp",
+  "version": "1.0.0",
+  "description": "MCP Server for BMAC Demo - Product Management System",
+  "main": "dist/index.js",
+  "type": "module",
+  "bin": {
+    "catalog-api-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "watch": "tsc --watch"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "bmac",
+    "products",
+    "catalog",
+    "e-commerce",
+    "inventory"
+  ],
+  "author": "Mihai Satmarean",
+  "license": "MIT",
+  "homepage": "https://github.com/mihai-satmarean/catalog-api-mcp",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mihai-satmarean/catalog-api-mcp.git"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "better-sqlite3": "^11.7.0",
+    "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.44.6",
+    "drizzle-zod": "^0.8.3",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^20",
+    "tsx": "^4.19.2",
+    "typescript": "^5"
+  }
+}
+

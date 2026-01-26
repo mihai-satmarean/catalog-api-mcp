@@ -1,0 +1,396 @@
+name: Slack MCP Server
+description: |
+  Model Context Protocol (MCP) server for Slack Workspaces. The most powerful MCP Slack server —
+  supports Stdio, SSE and HTTP transports, proxy settings, DMs, Group DMs, Smart History fetch
+  (by date or count), may work via OAuth or in complete stealth mode with no permissions and
+  scopes in Workspace.
+
+  Features:
+  - Stealth and OAuth Modes (xoxc/xoxd or xoxp/xoxb tokens)
+  - Enterprise Workspaces Support
+  - Channel and Thread Support with #Name @Lookup
+  - Smart History (pagination by date or message count)
+  - Search Messages (with filters for date, user, content)
+  - Safe Message Posting (disabled by default, opt-in)
+  - DM and Group DM support
+  - Embedded user information
+  - Cache support for users and channels
+  - Stdio/SSE/HTTP Transports & Proxy Support
+
+toolPreview: |
+  Use channels_list to get all Slack channels with filters:
+  - Filter by channel type (public, private, DM, Group DM)
+  - Sort by popularity (number of members)
+  - Paginated results
+
+  Example:
+  {
+    "channel_types": "public_channel,private_channel",
+    "sort": "popularity",
+    "limit": 50
+  }
+
+metadata:
+  license: MIT
+  authors:
+    - name: Andrey Korotovsky
+      url: https://github.com/korotovsky
+  maintainers:
+    - name: Mihai Satmarean
+      url: https://github.com/mihai-satmarean
+  tags:
+    - slack
+    - communication
+    - collaboration
+    - messaging
+    - enterprise
+    - stealth-mode
+    - oauth
+  categories:
+    - Communication
+    - Team Collaboration
+    - Enterprise Integration
+  icon: https://a.slack-edge.com/80588/marketing/img/meta/favicon-32.png
+  repoURL: https://github.com/mihai-satmarean/slack-mcp-server
+
+env:
+  SLACK_MCP_XOXC_TOKEN:
+    description: "Slack browser token (xoxc-...) for stealth mode authentication"
+    type: string
+    required: true
+  SLACK_MCP_XOXD_TOKEN:
+    description: "Slack browser cookie d (xoxd-...) for stealth mode authentication"
+    type: string
+    required: true
+  SLACK_MCP_PORT:
+    description: "Port for the MCP server to listen on"
+    type: string
+    default: "3001"
+  SLACK_MCP_HOST:
+    description: "Host for the MCP server to listen on"
+    type: string
+    default: "0.0.0.0"
+  SLACK_MCP_USERS_CACHE:
+    description: "Path to the users cache file for faster access"
+    type: string
+    default: "/app/cache/users_cache.json"
+  SLACK_MCP_CHANNELS_CACHE:
+    description: "Path to the channels cache file for faster access"
+    type: string
+    default: "/app/cache/channels_cache_v2.json"
+  SLACK_MCP_ADD_MESSAGE_TOOL:
+    description: "Enable message posting (true/false or comma-separated channel IDs)"
+    type: string
+    default: ""
+  SLACK_MCP_LOG_LEVEL:
+    description: "Log level (debug, info, warn, error, panic, fatal)"
+    type: string
+    default: "info"
+
+runtime: containerized
+containerizedConfig:
+  image: 'ghcr.io/mihai-satmarean/slack-mcp-server:latest'
+  port: 3001
+  path: '/mcp'
+  env:
+    SLACK_MCP_XOXC_TOKEN: "${SLACK_MCP_XOXC_TOKEN}"
+    SLACK_MCP_XOXD_TOKEN: "${SLACK_MCP_XOXD_TOKEN}"
+    SLACK_MCP_PORT: "3001"
+    SLACK_MCP_HOST: "0.0.0.0"
+    SLACK_MCP_USERS_CACHE: "/app/cache/users_cache.json"
+    SLACK_MCP_CHANNELS_CACHE: "/app/cache/channels_cache_v2.json"
+    SLACK_MCP_LOG_LEVEL: "${SLACK_MCP_LOG_LEVEL:-info}"
+
+tools:
+  - name: conversations_history
+    description: |
+      Get messages from a channel, DM, or private channel by channel_id.
+      Supports pagination and smart history fetch (by date or message count).
+    parameters:
+      channel_id:
+        description: |
+          ID of the channel (Cxxxxxxxxxx) or name starting with # or @ (e.g., #general, @username_dm)
+        type: string
+        required: true
+      include_activity_messages:
+        description: "Include activity messages like channel_join or channel_leave"
+        type: boolean
+        default: false
+      cursor:
+        description: "Cursor for pagination (from previous response)"
+        type: string
+        required: false
+      limit:
+        description: |
+          Limit of messages to fetch. Format: time range (1d, 1w, 30d, 90d) or number (50).
+          Must be empty when cursor is provided.
+        type: string
+        default: "1d"
+    examples:
+      - description: "Get last 24 hours of messages from #general"
+        parameters:
+          channel_id: "#general"
+          limit: "1d"
+      - description: "Get 50 messages from a DM with user"
+        parameters:
+          channel_id: "@username_dm"
+          limit: "50"
+
+  - name: conversations_replies
+    description: |
+      Get a thread of messages posted to a conversation by channel_id and thread_ts.
+      Supports pagination.
+    parameters:
+      channel_id:
+        description: "ID of the channel or name starting with # or @ (e.g., #general)"
+        type: string
+        required: true
+      thread_ts:
+        description: "Unique identifier of thread's parent message (timestamp format: 1234567890.123456)"
+        type: string
+        required: true
+      include_activity_messages:
+        description: "Include activity messages like channel_join or channel_leave"
+        type: boolean
+        default: false
+      cursor:
+        description: "Cursor for pagination (from previous response)"
+        type: string
+        required: false
+      limit:
+        description: "Limit of messages to fetch (time range or number)"
+        type: string
+        default: "1d"
+    examples:
+      - description: "Get all replies in a thread"
+        parameters:
+          channel_id: "#general"
+          thread_ts: "1234567890.123456"
+          limit: "100"
+
+  - name: conversations_add_message
+    description: |
+      Add a message to a channel, private channel, or DM. Disabled by default for safety.
+      Enable via SLACK_MCP_ADD_MESSAGE_TOOL environment variable.
+    parameters:
+      channel_id:
+        description: "ID of the channel or name starting with # or @ (e.g., #general)"
+        type: string
+        required: true
+      thread_ts:
+        description: "Optional thread timestamp to reply in a thread"
+        type: string
+        required: false
+      payload:
+        description: "Message content (supports text/plain or text/markdown)"
+        type: string
+        required: true
+      content_type:
+        description: "Content type of the message"
+        type: string
+        default: "text/markdown"
+        enum:
+          - "text/markdown"
+          - "text/plain"
+    examples:
+      - description: "Post a message to #general"
+        parameters:
+          channel_id: "#general"
+          payload: "Hello, team!"
+          content_type: "text/plain"
+      - description: "Reply in a thread with markdown"
+        parameters:
+          channel_id: "#general"
+          thread_ts: "1234567890.123456"
+          payload: "# Great idea!\n\nLet's discuss this further."
+          content_type: "text/markdown"
+
+  - name: conversations_search_messages
+    description: |
+      Search messages in channels, DMs, or threads using various filters.
+      All filters are optional, but search_query is required if no other filters are provided.
+      Not available when using bot tokens (xoxb-*).
+    parameters:
+      search_query:
+        description: |
+          Search query to filter messages. Can be keywords or a full Slack message URL
+          (e.g., https://slack.com/archives/C1234567890/p1234567890123456)
+        type: string
+        required: false
+      filter_in_channel:
+        description: "Filter messages in a specific channel (ID or name, e.g., #general)"
+        type: string
+        required: false
+      filter_in_im_or_mpim:
+        description: "Filter messages in DM or Group DM (ID or name, e.g., @username_dm)"
+        type: string
+        required: false
+      filter_users_with:
+        description: "Filter messages with a specific user (ID or name, e.g., @username)"
+        type: string
+        required: false
+      filter_users_from:
+        description: "Filter messages from a specific user (ID or name, e.g., @username)"
+        type: string
+        required: false
+      filter_date_before:
+        description: "Filter messages sent before a date (YYYY-MM-DD, July, Yesterday, Today)"
+        type: string
+        required: false
+      filter_date_after:
+        description: "Filter messages sent after a date (YYYY-MM-DD, July, Yesterday, Today)"
+        type: string
+        required: false
+      filter_date_on:
+        description: "Filter messages sent on a specific date (YYYY-MM-DD, July, Yesterday, Today)"
+        type: string
+        required: false
+      filter_date_during:
+        description: "Filter messages sent during a period (July, Yesterday, Today)"
+        type: string
+        required: false
+      filter_threads_only:
+        description: "Include only messages from threads"
+        type: boolean
+        default: false
+      cursor:
+        description: "Cursor for pagination (from previous response)"
+        type: string
+        required: false
+      limit:
+        description: "Maximum number of items to return (1-100)"
+        type: integer
+        default: 20
+    examples:
+      - description: "Search for 'marketing report' in all channels"
+        parameters:
+          search_query: "marketing report"
+          limit: 20
+      - description: "Find messages from @john in #general last week"
+        parameters:
+          filter_in_channel: "#general"
+          filter_users_from: "@john"
+          filter_date_after: "7d"
+          limit: 50
+      - description: "Get a specific message by URL"
+        parameters:
+          search_query: "https://slack.com/archives/C1234567890/p1234567890123456"
+
+  - name: channels_list
+    description: |
+      Get a list of channels with filtering and sorting options.
+      Supports public channels, private channels, DMs, and Group DMs.
+    parameters:
+      channel_types:
+        description: |
+          Comma-separated channel types to include.
+          Allowed values: mpim, im, public_channel, private_channel
+        type: string
+        required: true
+      sort:
+        description: "Sort by popularity (number of members/participants)"
+        type: string
+        enum:
+          - "popularity"
+        required: false
+      limit:
+        description: "Maximum number of items to return (1-1000)"
+        type: integer
+        default: 100
+      cursor:
+        description: "Cursor for pagination (from previous response)"
+        type: string
+        required: false
+    examples:
+      - description: "Get all public and private channels, sorted by popularity"
+        parameters:
+          channel_types: "public_channel,private_channel"
+          sort: "popularity"
+          limit: 100
+      - description: "Get all DMs and Group DMs"
+        parameters:
+          channel_types: "im,mpim"
+          limit: 50
+
+resources:
+  - name: "slack://<workspace>/channels"
+    description: |
+      Directory of all channels in the workspace (CSV format).
+      Includes public channels, private channels, DMs, and Group DMs.
+    mimeType: "text/csv"
+    fields:
+      - name: id
+        description: "Channel ID (e.g., C1234567890)"
+      - name: name
+        description: "Channel name (e.g., #general, @username_dm)"
+      - name: topic
+        description: "Channel topic (if any)"
+      - name: purpose
+        description: "Channel purpose (if any)"
+      - name: members
+        description: "Number of members"
+      - name: is_private
+        description: "Whether channel is private"
+      - name: is_archived
+        description: "Whether channel is archived"
+
+  - name: "slack://<workspace>/users"
+    description: |
+      Directory of all users in the workspace (CSV format).
+      Includes active and bot users.
+    mimeType: "text/csv"
+    fields:
+      - name: id
+        description: "User ID (e.g., U1234567890)"
+      - name: real_name
+        description: "User's real name"
+      - name: display_name
+        description: "User's display name"
+      - name: email
+        description: "User's email address (if available)"
+      - name: title
+        description: "User's title (if available)"
+      - name: is_bot
+        description: "Whether user is a bot"
+      - name: is_admin
+        description: "Whether user is an admin"
+
+notes: |
+  # Authentication Notes
+  This MCP server supports multiple authentication methods:
+  - **Stealth Mode (Recommended for obot.ai):** Use xoxc/xoxd tokens from browser cookies.
+    No Slack app creation required, no permissions needed.
+  - **OAuth Mode:** Use xoxp (user) or xoxb (bot) tokens. Requires Slack app and OAuth flow.
+
+  # Cache Requirements
+  For optimal performance and full functionality:
+  - Enable both users cache and channels cache
+  - Cache files are stored in `/app/cache/` in containerized runtime
+  - Without cache, #channel-name and @username lookups won't work
+
+  # Message Posting (Optional)
+  Message posting is disabled by default for safety. To enable:
+  - Set SLACK_MCP_ADD_MESSAGE_TOOL to "true" (all channels)
+  - Or provide comma-separated channel IDs (specific channels only)
+  - Use "!CHANNEL_ID" to allow all except specified channels
+
+  # Bot Token Limitations
+  When using bot tokens (xoxb-*):
+  - Cannot use conversations_search_messages tool
+  - Limited to channels where bot is invited
+  - No access to private DMs unless explicitly invited
+
+  # Rate Limiting
+  Slack API has rate limits. For high-volume usage:
+  - Enable caching to reduce API calls
+  - Use pagination with cursors
+  - Implement retry logic with exponential backoff
+
+  # Enterprise Workspace Support
+  For Enterprise Slack environments:
+  - Set SLACK_MCP_USER_AGENT with custom user agent
+  - Enable SLACK_MCP_CUSTOM_TLS if needed
+  - Configure SLACK_MCP_PROXY for corporate proxies
+
+version: "1.0.0"
+

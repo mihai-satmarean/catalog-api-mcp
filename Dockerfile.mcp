@@ -1,0 +1,100 @@
+# Multi-stage build for catalog-api-mcp using Obot's phat image
+# Reference: https://github.com/obot-platform/mcp-images
+
+# Stage 1: Build stage - compile TypeScript and better-sqlite3
+FROM node:20-alpine AS builder
+
+# Install build dependencies for better-sqlite3
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    sqlite-dev
+
+WORKDIR /build
+
+# Copy source and config files
+COPY bmac-mcp-server/src ./src
+COPY bmac-mcp-server/tsconfig.json ./
+COPY bmac-mcp-server/package*.json ./
+
+# Install dependencies and build (compiles both TS and native modules)
+RUN npm ci
+RUN npm run build
+
+# Stage 2: Final runtime image
+FROM node:20-alpine
+
+USER root
+
+# Install runtime dependencies for better-sqlite3
+RUN apk add --no-cache \
+    sqlite-libs
+
+WORKDIR /app
+
+# Copy built application from builder
+COPY --from=builder /build/dist ./dist
+COPY --from=builder /build/node_modules ./node_modules
+COPY --from=builder /build/package.json ./package.json
+
+# Copy nanobot binary from phat image
+COPY --from=ghcr.io/obot-platform/mcp-images/phat:main /usr/local/bin/nanobot /usr/local/bin/nanobot
+
+# Create data directory for SQLite database
+RUN mkdir -p /app/data && chmod 777 /app/data
+
+# Create nanobot.yaml configuration
+RUN cat > /nanobot.yaml <<'EOF'
+publish:
+  mcpServers: [server]
+
+mcpServers:
+  server:
+    command: node
+    args: [/app/dist/index.js]
+    env:
+      DATABASE_URL: ${DATABASE_URL}
+      NODE_ENV: production
+      MIDOCEAN_TEST_API_KEY: ${MIDOCEAN_TEST_API_KEY}
+      MIDOCEAN_PROD_API_KEY: ${MIDOCEAN_PROD_API_KEY}
+      MIDOCEAN_TEST_BASE_URL: ${MIDOCEAN_TEST_BASE_URL}
+      MIDOCEAN_PROD_BASE_URL: ${MIDOCEAN_PROD_BASE_URL}
+      XD_CONNECTS_BASE_URL: ${XD_CONNECTS_BASE_URL}
+      XD_CONNECTS_PRODUCT_DATA_URL: ${XD_CONNECTS_PRODUCT_DATA_URL}
+      XD_CONNECTS_PRODUCT_PRICES_URL: ${XD_CONNECTS_PRODUCT_PRICES_URL}
+      XD_CONNECTS_PRINT_DATA_URL: ${XD_CONNECTS_PRINT_DATA_URL}
+      XD_CONNECTS_PRINT_PRICES_URL: ${XD_CONNECTS_PRINT_PRICES_URL}
+      XD_CONNECTS_STOCK_URL: ${XD_CONNECTS_STOCK_URL}
+EOF
+
+# Set default environment variables
+ENV DATABASE_URL=/app/data/sqlite.db
+ENV NANOBOT_STATE=/app/data/nanobot.db
+# Supplier API configuration (optional, fallback to hardcoded values if not provided)
+ENV MIDOCEAN_TEST_API_KEY=""
+ENV MIDOCEAN_PROD_API_KEY=""
+ENV XD_CONNECTS_PRODUCT_DATA_URL=""
+
+# Switch to non-root user (alpine default is 1000)
+RUN chown -R 1000:1000 /app /nanobot.yaml
+
+USER 1000
+
+# Use nanobot entrypoint
+ENTRYPOINT ["nanobot"]
+
+# Listen on port 3000 (Obot deployment expects this port)
+CMD ["run", "--listen-address", ":3000", \
+     "-e", "DATABASE_URL", \
+     "-e", "MIDOCEAN_TEST_API_KEY", \
+     "-e", "MIDOCEAN_PROD_API_KEY", \
+     "-e", "MIDOCEAN_TEST_BASE_URL", \
+     "-e", "MIDOCEAN_PROD_BASE_URL", \
+     "-e", "XD_CONNECTS_BASE_URL", \
+     "-e", "XD_CONNECTS_PRODUCT_DATA_URL", \
+     "-e", "XD_CONNECTS_PRODUCT_PRICES_URL", \
+     "-e", "XD_CONNECTS_PRINT_DATA_URL", \
+     "-e", "XD_CONNECTS_PRINT_PRICES_URL", \
+     "-e", "XD_CONNECTS_STOCK_URL", \
+     "/nanobot.yaml"]

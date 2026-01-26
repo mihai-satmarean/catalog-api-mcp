@@ -1,0 +1,16 @@
+node_modules
+dist
+.git
+.gitignore
+*.log
+.env
+.env.local
+.DS_Store
+README.md
+QUICKSTART.md
+CURSOR_SETUP.md
+CONFIGURATION.md
+test-mcp.sh
+setup-cursor.sh
+cursor-mcp-config.json
+

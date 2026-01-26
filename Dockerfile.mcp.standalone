@@ -1,0 +1,145 @@
+# Multi-stage build: Get PostgreSQL from Alpine
+FROM alpine:3.19 AS postgres-builder
+
+RUN apk add --no-cache \
+    postgresql16 \
+    postgresql16-contrib
+
+# Production image using obot's base with embedded PostgreSQL  
+FROM ghcr.io/obot-platform/mcp-images-phat:main
+
+USER root
+
+# Install minimal runtime dependencies FIRST (before copying any libraries)
+RUN apk add --no-cache \
+    su-exec \
+    bash \
+    libssl3 \
+    libcrypto3
+
+# Copy PostgreSQL binaries and libexec from builder
+COPY --from=postgres-builder /usr/bin/postgres /usr/bin/
+COPY --from=postgres-builder /usr/bin/pg_ctl /usr/bin/
+COPY --from=postgres-builder /usr/bin/psql /usr/bin/
+COPY --from=postgres-builder /usr/bin/initdb /usr/bin/
+COPY --from=postgres-builder /usr/bin/createdb /usr/bin/
+COPY --from=postgres-builder /usr/libexec/postgresql16 /usr/libexec/postgresql16
+COPY --from=postgres-builder /usr/share/postgresql /usr/share/postgresql
+
+# Copy PostgreSQL libraries from builder (only app-specific ones, not system libs)
+COPY --from=postgres-builder /usr/lib/libpq.so* /usr/lib/
+COPY --from=postgres-builder /usr/lib/libicuuc.so* /usr/lib/
+COPY --from=postgres-builder /usr/lib/libicudata.so* /usr/lib/
+COPY --from=postgres-builder /usr/lib/libicui18n.so* /usr/lib/
+COPY --from=postgres-builder /usr/lib/libxml2.so* /usr/lib/
+COPY --from=postgres-builder /usr/lib/libxslt.so* /usr/lib/
+COPY --from=postgres-builder /usr/lib/libstdc++.so* /usr/lib/
+COPY --from=postgres-builder /usr/lib/libgcc_s.so* /usr/lib/
+
+# Copy the pre-built application and dependencies
+COPY bmac-mcp-server/dist/index.js ./catalog-api-mcp
+COPY bmac-mcp-server/node_modules ./node_modules
+COPY bmac-mcp-server/package.json ./package.json
+
+# Create empty init.sql (will be overwritten if actual init.sql exists)
+RUN touch /tmp/init.sql
+
+# Make executable
+RUN chmod +x ./catalog-api-mcp
+
+# Create postgres user and configure PostgreSQL
+RUN addgroup -g 70 -S postgres && \
+    adduser -u 70 -S -D -G postgres -H -h /var/lib/postgresql -s /bin/sh postgres && \
+    mkdir -p /run/postgresql /var/lib/postgresql/data /var/log/postgresql && \
+    chown -R postgres:postgres /run/postgresql /var/lib/postgresql /var/log/postgresql && \
+    chmod 2777 /run/postgresql && \
+    chmod 700 /var/lib/postgresql/data
+
+# Debug: Check if initdb exists
+RUN ls -la /usr/libexec/ && echo "---" && ls -la /usr/libexec/postgresql16/ || echo "Directory not found!"
+
+# Initialize PostgreSQL as postgres user (use full path with version number)
+RUN su-exec postgres /usr/libexec/postgresql16/initdb -D /var/lib/postgresql/data && \
+    echo "host all all 127.0.0.1/32 trust" >> /var/lib/postgresql/data/pg_hba.conf && \
+    echo "host all all ::1/128 trust" >> /var/lib/postgresql/data/pg_hba.conf && \
+    echo "listen_addresses='127.0.0.1'" >> /var/lib/postgresql/data/postgresql.conf && \
+    echo "port=5432" >> /var/lib/postgresql/data/postgresql.conf
+
+# Create database initialization script (use real paths with version)
+RUN cat > /usr/local/bin/init-db.sh <<'EOF'
+#!/bin/bash
+set -e
+
+# Start PostgreSQL temporarily for initialization
+su-exec postgres /usr/libexec/postgresql16/pg_ctl -D /var/lib/postgresql/data -l /var/log/postgresql/init.log start
+
+# Wait for PostgreSQL
+for i in $(seq 1 30); do
+  if su-exec postgres /usr/bin/psql -U postgres -c '\q' 2>/dev/null; then
+    break
+  fi
+  sleep 1
+done
+
+# Create database
+su-exec postgres /usr/bin/psql -U postgres -c "CREATE DATABASE bmac_demo_start;" 2>/dev/null || true
+
+# Run init.sql if exists
+if [ -f /tmp/init.sql ] && [ -s /tmp/init.sql ]; then
+  su-exec postgres /usr/bin/psql -U postgres -d bmac_demo_start -f /tmp/init.sql || true
+fi
+
+# Stop PostgreSQL
+su-exec postgres /usr/libexec/postgresql16/pg_ctl -D /var/lib/postgresql/data stop
+EOF
+
+RUN chmod +x /usr/local/bin/init-db.sh && \
+    /usr/local/bin/init-db.sh
+
+# Create nanobot configuration
+RUN cat > nanobot.yaml <<'EOF'
+publish:
+  mcpServers: [server]
+
+mcpServers:
+  server:
+    command: node
+    args: [./catalog-api-mcp]
+    env:
+      DATABASE_URL: ${DATABASE_URL}
+EOF
+
+RUN chown 1000 nanobot.yaml
+
+# Create startup script that starts PostgreSQL then nanobot (use real paths with version)
+RUN cat > /start-with-postgres.sh <<'EOF'
+#!/bin/bash
+set -e
+
+echo "Starting PostgreSQL..."
+su-exec postgres /usr/libexec/postgresql16/pg_ctl -D /var/lib/postgresql/data -l /var/log/postgresql/postgres.log start
+
+echo "Waiting for PostgreSQL to be ready..."
+for i in $(seq 1 30); do
+  if su-exec postgres /usr/bin/psql -U postgres -c '\q' 2>/dev/null; then
+    echo "PostgreSQL is ready!"
+    break
+  fi
+  sleep 1
+done
+
+# Export DATABASE_URL
+export DATABASE_URL="postgresql://postgres@localhost:5432/bmac_demo_start"
+
+echo "Starting MCP server with nanobot..."
+exec nanobot run --listen-address :${PORT} -e DATABASE_URL ./nanobot.yaml
+EOF
+
+RUN chmod +x /start-with-postgres.sh
+
+# Set default PORT if not provided
+ENV PORT=3000
+ENV DATABASE_URL=postgresql://postgres@localhost:5432/bmac_demo_start
+
+ENTRYPOINT ["/start-with-postgres.sh"]
+

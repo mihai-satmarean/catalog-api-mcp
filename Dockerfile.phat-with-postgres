@@ -1,0 +1,135 @@
+# Build stage: Get PostgreSQL from Alpine
+FROM alpine:3.19 AS postgres-source
+
+RUN apk add --no-cache \
+    postgresql16 \
+    postgresql16-contrib \
+    supervisor
+
+# Final stage: obot phat image with PostgreSQL
+FROM ghcr.io/obot-platform/mcp-images-phat:main
+
+USER root
+
+# Copy PostgreSQL binaries and libraries from Alpine
+COPY --from=postgres-source /usr/bin/postgres /usr/bin/
+COPY --from=postgres-source /usr/bin/initdb /usr/bin/
+COPY --from=postgres-source /usr/bin/pg_ctl /usr/bin/
+COPY --from=postgres-source /usr/bin/createdb /usr/bin/
+COPY --from=postgres-source /usr/bin/psql /usr/bin/
+COPY --from=postgres-source /usr/lib/postgresql16/ /usr/lib/postgresql16/
+COPY --from=postgres-source /usr/libexec/postgresql16/ /usr/libexec/postgresql16/
+COPY --from=postgres-source /usr/share/postgresql/ /usr/share/postgresql/
+COPY --from=postgres-source /usr/bin/supervisord /usr/bin/
+COPY --from=postgres-source /usr/bin/supervisorctl /usr/bin/
+COPY --from=postgres-source /usr/lib/python3.11/ /usr/lib/python3.11/
+COPY --from=postgres-source /usr/lib/libpython3.11.so.1.0 /usr/lib/
+
+# Create symlink for postgres user shell
+RUN ln -sf /bin/sh /bin/bash || true
+
+# Set working directory
+WORKDIR /app
+
+# Copy the pre-built application
+COPY bmac-mcp-server/dist ./
+COPY bmac-mcp-server/node_modules ./node_modules
+COPY bmac-mcp-server/package.json ./package.json
+
+RUN chmod +x ./index.js
+
+# Create nanobot.yaml configuration
+RUN cat > /app/nanobot.yaml <<'EOF'
+publish:
+  mcpServers: [catalog-api]
+
+mcpServers:
+  catalog-api:
+    command: node
+    args: [./index.js]
+    env:
+      DATABASE_URL: ${DATABASE_URL}
+      PORT: ${PORT}
+EOF
+
+# Configure PostgreSQL
+RUN mkdir -p /run/postgresql /var/lib/postgresql/data /var/log && \
+    addgroup -g 70 -S postgres 2>/dev/null || true && \
+    adduser -u 70 -S -D -G postgres -H -h /var/lib/postgresql -s /bin/sh postgres 2>/dev/null || true && \
+    chown -R postgres:postgres /run/postgresql /var/lib/postgresql && \
+    chmod 2777 /run/postgresql
+
+# Initialize database as postgres user
+USER postgres
+RUN initdb -D /var/lib/postgresql/data && \
+    echo "host all all 127.0.0.1/32 trust" >> /var/lib/postgresql/data/pg_hba.conf && \
+    echo "listen_addresses='127.0.0.1'" >> /var/lib/postgresql/data/postgresql.conf
+
+# Start PostgreSQL temporarily to create database
+RUN pg_ctl -D /var/lib/postgresql/data start && \
+    sleep 2 && \
+    createdb bmac_demo_start && \
+    pg_ctl -D /var/lib/postgresql/data stop
+
+USER root
+
+# Create supervisor configuration
+RUN mkdir -p /etc/supervisor/conf.d /var/log/supervisor && \
+    cat > /etc/supervisor/supervisord.conf <<'EOF'
+[unix_http_server]
+file=/var/run/supervisor.sock
+
+[supervisord]
+logfile=/var/log/supervisor/supervisord.log
+pidfile=/var/run/supervisord.pid
+childlogdir=/var/log/supervisor
+nodaemon=true
+
+[rpcinterface:supervisor]
+supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
+
+[supervisorctl]
+serverurl=unix:///var/run/supervisor.sock
+
+[include]
+files = /etc/supervisor/conf.d/*.conf
+EOF
+
+RUN cat > /etc/supervisor/conf.d/services.conf <<'EOF'
+[program:postgresql]
+user=postgres
+command=/usr/bin/postgres -D /var/lib/postgresql/data
+autostart=true
+autorestart=true
+stdout_logfile=/dev/stdout
+stdout_logfile_maxbytes=0
+stderr_logfile=/dev/stderr
+stderr_logfile_maxbytes=0
+priority=10
+startsecs=3
+
+[program:mcp-server]
+user=root
+directory=/app
+environment=DATABASE_URL="postgresql://postgres@localhost:5432/bmac_demo_start",PORT="3000"
+command=nanobot run --listen-address :3000 /app/nanobot.yaml
+autostart=true
+autorestart=true
+stdout_logfile=/dev/stdout
+stdout_logfile_maxbytes=0
+stderr_logfile=/dev/stderr
+stderr_logfile_maxbytes=0
+startsecs=10
+priority=20
+EOF
+
+ENV DATABASE_URL=postgresql://postgres@localhost:5432/bmac_demo_start
+ENV PORT=3000
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=3 \
+  CMD ps aux | grep -E '(postgres|nanobot)' | grep -v grep || exit 1
+
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]
+

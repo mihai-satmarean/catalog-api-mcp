@@ -1,0 +1,162 @@
+name: BMAC MCP Server
+description: |
+  A Model Context Protocol (MCP) server that provides comprehensive integration with BMAC Product Management System. Access and manage products, users, product requests, and query the product catalog from Midocean and XD Connects providers.
+
+  ## Features
+  - **Product Catalog Management**: Browse, search, and query products from multiple providers (Midocean, XD Connects)
+  - **Product Details**: Get comprehensive product information including variants, images, and digital assets
+  - **User Management**: View and manage users with role-based access control
+  - **Product Requests**: Create and manage product requests with status tracking
+  - **Advanced Search**: Search products by name, code, category, brand, or description
+  - **Database Integration**: Direct access to SQLite database for real-time product data
+
+  ## What you'll need to connect
+  **Optional:**
+  - **DATABASE_URL**: SQLite database file path (default: /app/data/sqlite.db)
+
+  **Optional:**
+  - Database connection can be configured via environment variable or .env.local file
+
+toolPreview:
+  - name: sync_suppliers
+    description: Synchronize and import ALL REAL products from supplier APIs (Midocean and XD Connects). Fetches complete product catalogs from live APIs.
+    params:
+      suppliers: Array of suppliers to sync - midocean, xd-connects, or all (optional, default all)
+      limit: Maximum number of products to import per supplier for testing (optional)
+  - name: import_products
+    description: Import/create specific products in the catalog database. For bulk import from suppliers, use sync_suppliers instead.
+    params:
+      products: Array of products to import with details like name, price, dimensions, colors, etc. (required)
+  - name: get_products
+    description: Retrieves a list of products with optional filters by source, search term, category, or brand
+    params:
+      source: Filter by product source (midocean, xd-connects, all) (optional)
+      search: Search term for product name, code, or description (optional)
+      category: Filter by category (optional)
+      brand: Filter by brand (optional)
+      limit: Maximum number of products to return (optional)
+  - name: get_product_details
+    description: Retrieves detailed information about a specific product including variants, images, and digital assets
+    params:
+      productId: The UUID of the product (required)
+      productCode: The product code (master_code or product_code) (optional)
+  - name: search_products
+    description: Search products by name, code, or description with fuzzy matching
+    params:
+      query: Search query string (required)
+      limit: Maximum number of results to return (optional)
+  - name: get_users
+    description: Retrieves a list of users with optional filters by email, name, or role
+    params:
+      search: Search term for user email or name (optional)
+      roleId: Filter by role ID (optional)
+      limit: Maximum number of users to return (optional)
+  - name: get_user_details
+    description: Retrieves detailed information about a specific user including their role
+    params:
+      userId: The UUID of the user (optional)
+      email: The email of the user (optional)
+  - name: get_product_requests
+    description: Retrieves a list of product requests with optional filters by status or product
+    params:
+      status: Filter by request status (pending, approved, rejected, fulfilled) (optional)
+      productId: Filter by product ID (optional)
+      limit: Maximum number of requests to return (optional)
+  - name: create_product_request
+    description: Creates a new product request
+    params:
+      productId: The UUID of the product (required)
+      productName: Name of the product (required)
+      quantity: Quantity requested (required)
+      personalizationRemarks: Optional personalization remarks (optional)
+
+metadata:
+  categories: Product Management, E-commerce, Database, Inventory Management
+  unsupportedTools: 
+icon: https://raw.githubusercontent.com/mihai-satmarean/catalog-api-mcp/main/public/logo.svg
+repoURL: https://github.com/mihai-satmarean/catalog-api-mcp
+
+env:
+  - key: DATABASE_URL
+    name: SQLite Database Path
+    required: false
+    sensitive: false
+    description: Path to SQLite database file (default /app/data/sqlite.db)
+  - key: PORT
+    name: Server Port
+    required: false
+    sensitive: false
+    description: Port for the MCP server (default 3000)
+  - key: MIDOCEAN_TEST_API_KEY
+    name: Midocean Test API Key
+    required: false
+    sensitive: true
+    description: API key for Midocean test environment (optional, uses default if not provided)
+  - key: MIDOCEAN_PROD_API_KEY
+    name: Midocean Production API Key
+    required: false
+    sensitive: true
+    description: API key for Midocean production environment (optional, uses default if not provided)
+  - key: MIDOCEAN_TEST_BASE_URL
+    name: Midocean Test Base URL
+    required: false
+    sensitive: false
+    description: Base URL for Midocean test API (default https://apitest.midocean.com)
+  - key: MIDOCEAN_PROD_BASE_URL
+    name: Midocean Production Base URL
+    required: false
+    sensitive: false
+    description: Base URL for Midocean production API (default https://api.midocean.com)
+  - key: XD_CONNECTS_BASE_URL
+    name: XD Connects Base URL
+    required: false
+    sensitive: false
+    description: Base URL for XD Connects feeds (default https://feeds.xindao.com)
+  - key: XD_CONNECTS_PRODUCT_DATA_URL
+    name: XD Connects Product Data Feed URL
+    required: false
+    sensitive: true
+    description: Full URL for XD Connects product data feed (optional, uses default if not provided)
+  - key: XD_CONNECTS_PRODUCT_PRICES_URL
+    name: XD Connects Product Prices Feed URL
+    required: false
+    sensitive: true
+    description: Full URL for XD Connects product prices feed (optional, uses default if not provided)
+  - key: XD_CONNECTS_PRINT_DATA_URL
+    name: XD Connects Print Data Feed URL
+    required: false
+    sensitive: true
+    description: Full URL for XD Connects print data feed (optional, uses default if not provided)
+  - key: XD_CONNECTS_PRINT_PRICES_URL
+    name: XD Connects Print Prices Feed URL
+    required: false
+    sensitive: true
+    description: Full URL for XD Connects print prices feed (optional, uses default if not provided)
+  - key: XD_CONNECTS_STOCK_URL
+    name: XD Connects Stock Feed URL
+    required: false
+    sensitive: true
+    description: Full URL for XD Connects stock feed (optional, uses default if not provided)
+
+runtime: containerized
+containerizedConfig:
+  image: 'ghcr.io/mihai-satmarean/catalog-api-mcp:latest'
+  port: 3000
+  path: '/mcp'
+  storage:
+    enabled: true
+    size: 2Gi
+    mountPath: /app/data
+  env:
+    DATABASE_URL: "/app/data/sqlite.db"
+    MIDOCEAN_TEST_API_KEY: "${MIDOCEAN_TEST_API_KEY}"
+    MIDOCEAN_PROD_API_KEY: "${MIDOCEAN_PROD_API_KEY}"
+    MIDOCEAN_TEST_BASE_URL: "${MIDOCEAN_TEST_BASE_URL}"
+    MIDOCEAN_PROD_BASE_URL: "${MIDOCEAN_PROD_BASE_URL}"
+    XD_CONNECTS_BASE_URL: "${XD_CONNECTS_BASE_URL}"
+    XD_CONNECTS_PRODUCT_DATA_URL: "${XD_CONNECTS_PRODUCT_DATA_URL}"
+    XD_CONNECTS_PRODUCT_PRICES_URL: "${XD_CONNECTS_PRODUCT_PRICES_URL}"
+    XD_CONNECTS_PRINT_DATA_URL: "${XD_CONNECTS_PRINT_DATA_URL}"
+    XD_CONNECTS_PRINT_PRICES_URL: "${XD_CONNECTS_PRINT_PRICES_URL}"
+    XD_CONNECTS_STOCK_URL: "${XD_CONNECTS_STOCK_URL}"
+

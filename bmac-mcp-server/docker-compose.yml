@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  bmac-mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bmac-mcp-server
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-/app/data/sqlite.db}
+    volumes:
+      # Mount the SQLite database file from the host
+      # Update this path to match your actual SQLite database location
+      - ../sqlite.db:/app/data/sqlite.db
+    # MCP servers communicate via stdio, so we don't expose ports
+    # They are invoked directly by MCP clients
+    stdin_open: true
+    tty: true
+    # Keep container running for debugging
+    command: tail -f /dev/null
+
