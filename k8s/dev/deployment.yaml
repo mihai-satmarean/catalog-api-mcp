@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: catalog-mcp-dev
+  namespace: catalog-mcp-dev
+  labels:
+    app: catalog-mcp-dev
+    component: webapp
+    environment: development
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: catalog-mcp-dev
+  template:
+    metadata:
+      labels:
+        app: catalog-mcp-dev
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
+        prometheus.io/path: "/metrics"
+    spec:
+      imagePullSecrets:
+      - name: ghcr-pull-secret
+      containers:
+      - name: webapp
+        image: ghcr.io/mihai-satmarean/catalog-api-mcp-webapp:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+          name: mcp-port
+          protocol: TCP
+        env:
+        - name: NODE_ENV
+          value: "development"
+        - name: MCP_DEBUG
+          value: "true"
+        - name: LOG_LEVEL
+          value: "debug"
+        - name: DATABASE_URL
+          value: "/app/data/sqlite.db"
+        - name: NANOBOT_STATE
+          value: "/app/data/nanobot.db"
+        - name: PORT
+          value: "3000"
+        - name: MIDOCEAN_TEST_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: catalog-mcp-secrets
+              key: MIDOCEAN_TEST_API_KEY
+        - name: MIDOCEAN_PROD_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: catalog-mcp-secrets
+              key: MIDOCEAN_PROD_API_KEY
+        - name: XD_CONNECTS_PRODUCT_DATA_URL
+          valueFrom:
+            secretKeyRef:
+              name: catalog-mcp-secrets
+              key: XD_CONNECTS_PRODUCT_DATA_URL
+        volumeMounts:
+        - name: data
+          mountPath: /app/data
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: catalog-mcp-dev-storage
