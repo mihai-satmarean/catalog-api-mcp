@@ -66,7 +66,7 @@ export const productTools: Tool[] = [
         search: { type: 'string' },
         category: { type: 'string' },
         brand: { type: 'string' },
-        limit: { type: 'number', default: 50 },
+        limit: { type: 'number', default: 10 },
       },
     },
   },
@@ -89,7 +89,7 @@ export const productTools: Tool[] = [
       type: 'object',
       properties: {
         query: { type: 'string' },
-        limit: { type: 'number', default: 20 },
+        limit: { type: 'number', default: 10 },
         offset: { type: 'number', default: 0 },
       },
       required: ['query'],
@@ -103,7 +103,7 @@ export const productTools: Tool[] = [
       properties: {
         itemCode: { type: 'string' },
         search: { type: 'string' },
-        limit: { type: 'number', default: 50 },
+        limit: { type: 'number', default: 10 },
       },
     },
   },
@@ -147,7 +147,7 @@ export const productTools: Tool[] = [
 ];
 
 export async function handleGetProducts(args: any) {
-  const { source, search, category, brand, limit = 20, offset = 0 } = args;
+  const { source, search, category, brand, limit = 10, offset = 0 } = args;
   
   const conditions = [];
   
@@ -184,12 +184,21 @@ export async function handleGetProducts(args: any) {
   }
   const [{ count: totalCount }] = await countQuery;
   
-  // Get paginated results
-  let query = db.select().from(products);
+  // Get paginated results - select only key fields to reduce token usage
+  let query = db.select({
+    id: products.id,
+    name: products.name,
+    productCode: products.productCode,
+    brand: products.brand,
+    category: products.category,
+    price: products.price,
+    source: products.source,
+    imageUrl: products.imageUrl,
+  }).from(products);
   if (conditions.length > 0) {
     query = query.where(and(...conditions)!) as any;
   }
-  const results = await query.limit(limit).offset(offset);
+  const results = await query.limit(Math.min(limit, 10)).offset(offset);
   
   const totalPages = Math.ceil(totalCount / limit);
   const currentPage = Math.floor(offset / limit) + 1;
@@ -204,13 +213,11 @@ export async function handleGetProducts(args: any) {
           pagination: {
             total: totalCount,
             count: results.length,
-            limit,
-            offset,
             page: currentPage,
             totalPages,
             hasMore,
           },
-        }, null, 2),
+        }),
       },
     ],
   };
@@ -294,7 +301,7 @@ export async function handleGetProductDetails(args: any) {
 }
 
 export async function handleSearchProducts(args: any) {
-  const { query, limit = 20, offset = 0 } = args;
+  const { query, limit = 10, offset = 0 } = args;
   const queryPattern = `%${query.toLowerCase()}%`;
   
   const searchCondition = or(
@@ -311,12 +318,20 @@ export async function handleSearchProducts(args: any) {
     .from(products)
     .where(searchCondition);
   
-  // Get paginated results
+  // Get paginated results - select only key fields
   const results = await db
-    .select()
+    .select({
+      id: products.id,
+      name: products.name,
+      productCode: products.productCode,
+      brand: products.brand,
+      category: products.category,
+      price: products.price,
+      source: products.source,
+    })
     .from(products)
     .where(searchCondition)
-    .limit(limit)
+    .limit(Math.min(limit, 10))
     .offset(offset);
   
   const totalPages = Math.ceil(totalCount / limit);
@@ -333,13 +348,11 @@ export async function handleSearchProducts(args: any) {
           pagination: {
             total: totalCount,
             count: results.length,
-            limit,
-            offset,
             page: currentPage,
             totalPages,
             hasMore,
           },
-        }, null, 2),
+        }),
       },
     ],
   };
@@ -349,8 +362,9 @@ export async function handleSyncSuppliers(args: any) {
   const { suppliers = ['all'], limit } = args;
   const suppliersToSync = suppliers.includes('all') ? ['midocean', 'xd-connects'] : suppliers;
   
-  const imported = [];
+  let importedCount = 0;
   const errors = [];
+  const samples = [];
   
   console.error(`[Sync Suppliers] Starting REAL sync for: ${suppliersToSync.join(', ')}`);
   
@@ -415,7 +429,8 @@ export async function handleSyncSuppliers(args: any) {
           };
           
           const result = await db.insert(products).values(productData).returning();
-          imported.push(result[0]);
+          importedCount++;
+          if (samples.length < 3) samples.push({ id: result[0].id, name: result[0].name, code: result[0].productCode, supplier: 'midocean' });
         } catch (error) {
           errors.push({
             product: apiProduct.name || apiProduct.variant_code || 'Unknown',
@@ -425,7 +440,7 @@ export async function handleSyncSuppliers(args: any) {
         }
       }
       
-      console.error(`[Sync Suppliers] Midocean: imported ${imported.length}, errors ${errors.length}`);
+      console.error(`[Sync Suppliers] Midocean: imported ${importedCount}, errors ${errors.length}`);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.error(`[Sync Suppliers] Failed to fetch from Midocean API: ${errorMsg}`);
@@ -476,7 +491,8 @@ export async function handleSyncSuppliers(args: any) {
           };
           
           const result = await db.insert(products).values(productData).returning();
-          imported.push(result[0]);
+          importedCount++;
+          if (samples.length < 6) samples.push({ id: result[0].id, name: result[0].name, code: result[0].productCode, supplier: 'xd-connects' });
         } catch (error) {
           errors.push({
             product: apiProduct.Name || apiProduct.Code || 'Unknown',
@@ -486,7 +502,7 @@ export async function handleSyncSuppliers(args: any) {
         }
       }
       
-      console.error(`[Sync Suppliers] XD Connects: imported ${imported.length}, errors ${errors.length}`);
+      console.error(`[Sync Suppliers] XD Connects: imported ${importedCount}, errors ${errors.length}`);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.error(`[Sync Suppliers] Failed to fetch from XD Connects API: ${errorMsg}`);
@@ -503,13 +519,13 @@ export async function handleSyncSuppliers(args: any) {
         type: 'text',
         text: JSON.stringify({
           success: true,
-          message: `Synced ${imported.length} REAL products from ${suppliersToSync.join(', ')} APIs`,
-          imported: imported.length,
+          message: `Synced ${importedCount} products`,
+          imported: importedCount,
           errors: errors.length,
           suppliers: suppliersToSync,
-          note: '✅ These are REAL products fetched from live supplier APIs (Midocean Test & XD Connects)',
-          errorDetails: errors.length > 0 ? errors.slice(0, 10) : undefined, // Show max 10 errors
-        }, null, 2),
+          samples: samples,
+          errorSample: errors.slice(0, 3),
+        }),
       },
     ],
   };
@@ -564,16 +580,16 @@ export async function handleImportProducts(args: any) {
           success: true,
           imported: imported.length,
           errors: errors.length,
-          products: imported,
-          errorDetails: errors,
-        }, null, 2),
+          sample: imported.slice(0, 5).map(p => ({ id: p.id, name: p.name, code: p.productCode })),
+          errorSample: errors.slice(0, 3),
+        }),
       },
     ],
   };
 }
 
 export async function handleGetXDConnectsPrices(args: any) {
-  const { itemCode, search, limit = 50 } = args;
+  const { itemCode, search, limit = 10 } = args;
   
   try {
     // Fetch prices from XD Connects API
@@ -608,8 +624,8 @@ export async function handleGetXDConnectsPrices(args: any) {
       );
     }
     
-    // Limit results
-    const limitedPrices = prices.slice(0, limit);
+    // Limit results to max 10 to prevent token overflow
+    const limitedPrices = prices.slice(0, Math.min(limit, 10));
     
     // Transform prices to a more readable format
     const formattedPrices = limitedPrices.map((price: any) => ({
@@ -682,7 +698,7 @@ export async function handleGetXDConnectsPrices(args: any) {
 }
 
 export async function handleGetMidoceanPrices(args: any) {
-  const { productCode, search, environment = 'test', limit = 50 } = args;
+  const { productCode, search, environment = 'test', limit = 10 } = args;
   
   try {
     // Fetch prices from Midocean API
@@ -757,8 +773,8 @@ export async function handleGetMidoceanPrices(args: any) {
       );
     }
     
-    // Limit results
-    const limitedPrices = prices.slice(0, limit);
+    // Limit results to max 10 to prevent token overflow
+    const limitedPrices = prices.slice(0, Math.min(limit, 10));
     
     // Transform prices to a more readable format
     // Midocean API structure may vary, so we'll try to extract common fields
@@ -844,7 +860,7 @@ export async function handleGetMidoceanPrices(args: any) {
 }
 
 export async function handleGetMidoceanPrintPrices(args: any) {
-  const { productCode, search, environment = 'test', limit = 50 } = args;
+  const { productCode, search, environment = 'test', limit = 10 } = args;
   
   try {
     // Fetch print prices from Midocean API
@@ -879,8 +895,8 @@ export async function handleGetMidoceanPrintPrices(args: any) {
       );
     }
     
-    // Limit results
-    const limitedPrices = prices.slice(0, limit);
+    // Limit results to max 10 to prevent token overflow
+    const limitedPrices = prices.slice(0, Math.min(limit, 10));
     
     // Transform prices to a more readable format
     // Midocean Print Pricelist API structure may vary, so we'll try to extract common fields
