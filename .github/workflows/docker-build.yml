@@ -8,11 +8,18 @@ on:
     paths:
       - 'bmac-mcp-server/**'
       - 'src/**'
+      - 'public/**'
       - '.github/workflows/docker-build.yml'
       - 'Dockerfile.mcp'
       - 'Dockerfile.webapp'
       - '.dockerignore'
       - 'package.json'
+      - 'package-lock.json'
+      - 'next.config.ts'
+      - 'postcss.config.mjs'
+      - 'components.json'
+      - 'tsconfig.json'
+      - 'drizzle.config.ts'
     tags:
       - 'v*'
   pull_request:
@@ -22,10 +29,18 @@ on:
     paths:
       - 'bmac-mcp-server/**'
       - 'src/**'
+      - 'public/**'
       - '.github/workflows/docker-build.yml'
       - 'Dockerfile.mcp'
       - 'Dockerfile.webapp'
       - '.dockerignore'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'next.config.ts'
+      - 'postcss.config.mjs'
+      - 'components.json'
+      - 'tsconfig.json'
+      - 'drizzle.config.ts'
   workflow_dispatch:
 
 env:
