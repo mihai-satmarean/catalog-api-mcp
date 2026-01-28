@@ -41,54 +41,64 @@ export async function GET(request: NextRequest) {
     const itemCode = searchParams.get('itemCode');
 
     // Fetch XD Connects prices
-    let pricesQuery = db.select().from(productPrices);
-
+    const pricesQuery = db.select().from(productPrices);
+    
+    let xdPrices;
     if (itemCode) {
-      pricesQuery = pricesQuery.where(eq(productPrices.itemCode, itemCode));
+      xdPrices = await pricesQuery
+        .where(eq(productPrices.itemCode, itemCode))
+        .limit(limit)
+        .offset(offset);
     } else if (search) {
-      pricesQuery = pricesQuery.where(
-        or(
-          ilike(productPrices.itemCode, `%${search}%`),
-          ilike(productPrices.currency, `%${search}%`)
-        )!
-      );
+      xdPrices = await pricesQuery
+        .where(
+          or(
+            ilike(productPrices.itemCode, `%${search}%`),
+            ilike(productPrices.currency, `%${search}%`)
+          )!
+        )
+        .limit(limit)
+        .offset(offset);
+    } else {
+      xdPrices = await pricesQuery.limit(limit).offset(offset);
     }
-
-    const xdPrices = await pricesQuery.limit(limit).offset(offset);
 
     // Fetch Midocean products with prices
-    let midoceanQuery = db.select().from(products)
-      .where(
-        and(
-          eq(products.source, 'midocean'),
-          // Only include products that have a price
-          // Note: We'll filter out null prices after fetching
-        )
-      );
+    const midoceanBaseQuery = db.select().from(products);
     
+    let midoceanProductsRaw;
     if (itemCode) {
-      midoceanQuery = midoceanQuery.where(
-        and(
-          eq(products.source, 'midocean'),
-          or(
-            eq(products.productCode, itemCode),
-            eq(products.externalId, itemCode)
-          )!
+      midoceanProductsRaw = await midoceanBaseQuery
+        .where(
+          and(
+            eq(products.source, 'midocean'),
+            or(
+              eq(products.productCode, itemCode),
+              eq(products.externalId, itemCode)
+            )!
+          )
         )
-      );
+        .limit(limit)
+        .offset(offset);
     } else if (search) {
-      midoceanQuery = midoceanQuery.where(
-        and(
-          eq(products.source, 'midocean'),
-          or(
-            ilike(products.productCode, `%${search}%`),
-            ilike(products.name, `%${search}%`)
-          )!
+      midoceanProductsRaw = await midoceanBaseQuery
+        .where(
+          and(
+            eq(products.source, 'midocean'),
+            or(
+              ilike(products.productCode, `%${search}%`),
+              ilike(products.name, `%${search}%`)
+            )!
+          )
         )
-      );
+        .limit(limit)
+        .offset(offset);
+    } else {
+      midoceanProductsRaw = await midoceanBaseQuery
+        .where(eq(products.source, 'midocean'))
+        .limit(limit)
+        .offset(offset);
     }
-
-    const midoceanProductsRaw = await midoceanQuery.limit(limit).offset(offset);
     
     // Transform midocean products with prices to ProductPrice format
     const midoceanPrices = midoceanProductsRaw
