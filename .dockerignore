@@ -46,7 +46,6 @@ drizzle
 *.db-journal
 *.db-wal
 *.db-shm
-drizzle.config.ts
 
 # Tests
 test
@@ -73,5 +72,4 @@ test-*.js
 bmac-demo
 .dockerignore
 docker-compose.yml
-tsconfig.json
 eslint.config.mjs
