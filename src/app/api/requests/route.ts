@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
     
     const basePrice = product[0].price ?? 0;
-    const quantity = parseFloat(validatedData.quantity);
+    const quantity = validatedData.quantity;
     
     // Fetch quotes from all providers in parallel
     console.log(`Fetching quotes for request ${createdRequest.id}...`);
