@@ -57,9 +57,9 @@ export async function POST(request: NextRequest) {
     const quoteInserts = quotes.map(quote => ({
       requestId: createdRequest.id,
       providerName: quote.providerName,
-      price: quote.price.toString(),
+      price: quote.price,
       deliveryDays: quote.deliveryDays,
-      reliabilityScore: quote.reliabilityScore.toString(),
+      reliabilityScore: quote.reliabilityScore,
       responseTime: quote.responseTime,
     }));
     
