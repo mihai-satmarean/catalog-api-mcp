@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - master
+      - 'feature/**'
     paths:
       - 'bmac-mcp-server/**'
       - 'src/**'
