@@ -89,7 +89,7 @@ type ProductPrice = {
   [key: string]: any;
 };
 
-export default function ProductProvidersPage() {
+export default function ProductProvidersPage({ embedded = false }: { embedded?: boolean }) {
   const [products, setProducts] = useState<ProductProvider[]>([]);
   const [prices, setPrices] = useState<Record<string, ProductPrice>>({});
   const [loading, setLoading] = useState(true);
@@ -105,10 +105,8 @@ export default function ProductProvidersPage() {
   const [minPrice, setMinPrice] = useState<string>('');
   const [maxPrice, setMaxPrice] = useState<string>('');
   const [selectedColor, setSelectedColor] = useState<string>('');
-  const [selectedBrand, setSelectedBrand] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [selectedSource, setSelectedSource] = useState<string>('');
-  const [syncingMidocean, setSyncingMidocean] = useState(false);
   
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -135,7 +133,7 @@ export default function ProductProvidersPage() {
         throw new Error(productsData.error || 'Failed to fetch products');
       }
 
-      const productsList = productsData.data || [];
+      const productsList = (productsData.data || []).filter((p: ProductProvider) => p && (p.id || p.itemCode));
       setProducts(productsList);
       
       // Debug: Log product sources to verify they're set correctly
@@ -433,7 +431,6 @@ export default function ProductProvidersPage() {
 
   // Extract unique values for filters
   const uniqueColors = Array.from(new Set(products.map(p => p.color).filter(Boolean))).sort();
-  const uniqueBrands = Array.from(new Set(products.map(p => p.brand).filter(Boolean))).sort();
   const uniqueCategories = Array.from(new Set(products.map(p => p.mainCategory).filter(Boolean))).sort();
 
   const filteredProducts = products.filter((product) => {
@@ -500,9 +497,6 @@ export default function ProductProvidersPage() {
     // Color filter
     if (selectedColor && product.color !== selectedColor) return false;
 
-    // Brand filter
-    if (selectedBrand && product.brand !== selectedBrand) return false;
-
     // Category filter
     if (selectedCategory && product.mainCategory !== selectedCategory) return false;
 
@@ -533,14 +527,13 @@ export default function ProductProvidersPage() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, minPrice, maxPrice, selectedColor, selectedBrand, selectedCategory, selectedSource]);
+  }, [searchTerm, minPrice, maxPrice, selectedColor, selectedCategory, selectedSource]);
 
   // Reset filters function
   const resetFilters = () => {
     setMinPrice('');
     setMaxPrice('');
     setSelectedColor('');
-    setSelectedBrand('');
     setSelectedCategory('');
     setSelectedSource('');
     setSearchTerm('');
@@ -553,91 +546,38 @@ export default function ProductProvidersPage() {
     setCurrentPage(1); // Reset to first page when changing page size
   };
 
-  // Sync Midocean products from Test environment
-  const handleSyncMidoceanProducts = async () => {
-    try {
-      setSyncingMidocean(true);
-      setError(null);
-      
-      // Call the Midocean Products API (Test environment)
-      const response = await fetch('/api/midocean/product-data?environment=test');
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || `HTTP ${response.status}: Failed to sync Midocean products`);
-      }
-      
-      if (data.success) {
-        const message = `Successfully synced ${data.saved} of ${data.total || 0} Midocean products from Test environment!`;
-        console.log('Midocean sync result:', {
-          saved: data.saved,
-          total: data.total,
-          skipped: data.skippedCount || 0,
-          errors: data.errorCount || 0,
-          skippedItems: data.skipped,
-          errorItems: data.errors,
-          message: data.message,
-        });
-        
-        let alertMessage = message;
-        if (data.skippedCount > 0) {
-          alertMessage += `\n\n${data.skippedCount} product(s) were skipped (missing required fields).`;
-        }
-        if (data.errors && data.errors.length > 0) {
-          console.warn('Some products failed to sync:', data.errors);
-          alertMessage += `\n\n${data.errorCount || data.errors.length} product(s) had errors. Check console for details.`;
-        }
-        
-        alert(alertMessage);
-        
-        // Refresh the products list
-        await fetchProducts();
-      } else {
-        throw new Error(data.error || 'Failed to sync Midocean products');
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to sync Midocean products';
-      console.error('Error syncing Midocean products:', err);
-      setError(errorMessage);
-      alert(`Error: ${errorMessage}`);
-    } finally {
-      setSyncingMidocean(false);
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
+    <div className={embedded ? "p-8" : "min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8"}>
       <div className="max-w-7xl mx-auto">
-        <header className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            📦 Product Providers
-          </h1>
-          <p className="text-xl text-gray-600 mb-6">
-            Manage products from XD Connects and Midocean
-          </p>
+        {!embedded && (
+          <header className="text-center mb-8">
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">
+              📦 Product Providers
+            </h1>
+            <p className="text-xl text-gray-600 mb-6">
+              Manage products from XD Connects and Midocean
+            </p>
 
-          {/* Navigation */}
-          <nav className="flex justify-center space-x-4 mb-6 flex-wrap gap-2">
-            <Button asChild size="lg" variant="outline">
-              <a href="/">👥 Users</a>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <a href="/products">🛍️ Products</a>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <a href="/requests">📋 Requests</a>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <a href="/midocean">🌊 Midocean</a>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <a href="/xd-connects">🔗 XD Connects</a>
-            </Button>
-            <Button asChild size="lg" className="bg-blue-600 hover:bg-blue-700">
-              <a href="/product-providers">📦 Product Providers</a>
-            </Button>
-          </nav>
-        </header>
+            {/* Navigation */}
+            <nav className="flex justify-center space-x-4 mb-6 flex-wrap gap-2">
+              <Button asChild size="lg" variant="outline">
+                <a href="/">🏠 Home</a>
+              </Button>
+              <Button asChild size="lg" variant="outline">
+                <a href="/users-management">👥 Users Management</a>
+              </Button>
+              <Button asChild size="lg" variant="outline">
+                <a href="/midocean">🌊 Midocean</a>
+              </Button>
+              <Button asChild size="lg" variant="outline">
+                <a href="/xd-connects">🔗 XD Connects</a>
+              </Button>
+              <Button asChild size="lg" className="bg-blue-600 hover:bg-blue-700">
+                <a href="/product-providers">📦 Product Providers</a>
+              </Button>
+            </nav>
+          </header>
+        )}
 
         <Card>
           <CardHeader>
@@ -663,21 +603,6 @@ export default function ProductProvidersPage() {
                     <option value="100">100</option>
                   </select>
                 </div>
-                <Button 
-                  onClick={handleSyncMidoceanProducts} 
-                  variant="outline"
-                  disabled={syncingMidocean}
-                  className="bg-blue-50 hover:bg-blue-100"
-                >
-                  {syncingMidocean ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                      Syncing...
-                    </>
-                  ) : (
-                    '🌊 Sync Midocean Products'
-                  )}
-                </Button>
                 <Button onClick={fetchProducts} variant="outline">
                   Refresh
                 </Button>
@@ -737,24 +662,6 @@ export default function ProductProvidersPage() {
                     {uniqueColors.map((color) => (
                       <option key={color} value={color}>
                         {color}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                
-                {/* Brand Filter */}
-                <div>
-                  <Label htmlFor="brand">Brand</Label>
-                  <select
-                    id="brand"
-                    value={selectedBrand}
-                    onChange={(e) => setSelectedBrand(e.target.value)}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <option value="">All Brands</option>
-                    {uniqueBrands.map((brand) => (
-                      <option key={brand} value={brand}>
-                        {brand}
                       </option>
                     ))}
                   </select>
@@ -824,7 +731,7 @@ export default function ProductProvidersPage() {
                 <p className="text-gray-600">No products found.</p>
                 <p className="text-sm text-gray-500 mt-2">
                   {selectedSource === 'midocean' 
-                    ? 'No Midocean products found. Click the "Sync Midocean Products" button above to sync products from Midocean API.'
+                    ? 'No Midocean products found. Try fetching product data from the Midocean page first.'
                     : selectedSource === 'xd-connects'
                     ? 'No XD Connects products found. Try fetching product data from the XD Connects page first.'
                     : 'Try fetching product data from the XD Connects or Midocean pages first.'}
@@ -836,22 +743,6 @@ export default function ProductProvidersPage() {
                       ({products.filter((p: ProductProvider) => p.source === 'midocean').length} Midocean, 
                       {products.filter((p: ProductProvider) => !p.source || p.source !== 'midocean').length} XD Connects)
                     </p>
-                    {selectedSource === 'midocean' && products.filter((p: ProductProvider) => p.source === 'midocean').length === 0 && (
-                      <Button 
-                        onClick={handleSyncMidoceanProducts}
-                        disabled={syncingMidocean}
-                        className="mt-4 bg-blue-600 hover:bg-blue-700"
-                      >
-                        {syncingMidocean ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                            Syncing...
-                          </>
-                        ) : (
-                          '🌊 Sync Midocean Products Now'
-                        )}
-                      </Button>
-                    )}
                   </div>
                 )}
               </div>
@@ -863,20 +754,18 @@ export default function ProductProvidersPage() {
                       <TableHead>Source</TableHead>
                       <TableHead>Item Code</TableHead>
                       <TableHead>Item Name</TableHead>
-                      <TableHead>Product Name</TableHead>
-                      <TableHead>Category Code</TableHead>
-                      <TableHead>Product Class</TableHead>
-                      <TableHead>Brand</TableHead>
                       <TableHead>Category</TableHead>
                       <TableHead>Color</TableHead>
                       <TableHead>Price</TableHead>
-                      <TableHead>Life Cycle</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {paginatedProducts.map((product) => (
-                      <TableRow key={product.id}>
+                    {paginatedProducts.map((product, index) => {
+                      // Generate a unique key - prefer id, fallback to itemCode + index
+                      const uniqueKey = product.id || `${product.itemCode || 'unknown'}-${startIndex + index}`;
+                      return (
+                      <TableRow key={uniqueKey}>
                         <TableCell>
                           {product.source === 'midocean' ? (
                             <Badge className="bg-blue-600">Midocean</Badge>
@@ -886,10 +775,6 @@ export default function ProductProvidersPage() {
                         </TableCell>
                         <TableCell className="font-medium">{product.itemCode}</TableCell>
                         <TableCell>{product.itemName || '-'}</TableCell>
-                        <TableCell>{product.productName || '-'}</TableCell>
-                        <TableCell>{product.categoryCode || '-'}</TableCell>
-                        <TableCell>{product.productClass || '-'}</TableCell>
-                        <TableCell>{product.brand || '-'}</TableCell>
                         <TableCell>
                           {product.mainCategory && product.subCategory
                             ? `${product.mainCategory} / ${product.subCategory}`
@@ -1035,21 +920,6 @@ export default function ProductProvidersPage() {
                             );
                           })()}
                         </TableCell>
-                        <TableCell>
-                          {product.productLifeCycle ? (
-                            <Badge
-                              className={
-                                product.productLifeCycle === 'Current'
-                                  ? 'bg-green-600'
-                                  : 'bg-gray-600'
-                              }
-                            >
-                              {product.productLifeCycle}
-                            </Badge>
-                          ) : (
-                            '-'
-                          )}
-                        </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
                             <Button
@@ -1059,24 +929,11 @@ export default function ProductProvidersPage() {
                             >
                               View
                             </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleEditProduct(product)}
-                            >
-                              Edit
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => handleDeleteProduct(product)}
-                            >
-                              Delete
-                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
                 

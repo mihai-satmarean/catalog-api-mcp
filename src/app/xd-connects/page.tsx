@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -8,13 +8,42 @@ import { getXDConnectsConfig } from '@/lib/providers/xd-connects/config';
 
 type EndpointTab = 'product-data' | 'product-prices' | 'print-data' | 'print-prices' | 'stock';
 
-export default function XDConnectsPage() {
+interface LastSyncInfo {
+  syncedAt: Date | string;
+  recordCount?: number | null;
+  success: boolean;
+}
+
+export default function XDConnectsPage({ embedded = false }: { embedded?: boolean }) {
   const [activeTab, setActiveTab] = useState<EndpointTab>('product-data');
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lastSyncDates, setLastSyncDates] = useState<Record<string, LastSyncInfo>>({});
 
   const config = getXDConnectsConfig();
+
+  // Fetch last sync dates on component mount
+  useEffect(() => {
+    fetchLastSyncDates();
+  }, []);
+
+  const fetchLastSyncDates = async () => {
+    try {
+      console.log('Fetching XD Connects last sync dates...');
+      const res = await fetch('/api/xd-connects/sync-history');
+      const data = await res.json();
+      console.log('XD Connects sync history response:', { status: res.status, ok: res.ok, data });
+      if (data.success && data.data) {
+        console.log('Setting last sync dates:', data.data);
+        setLastSyncDates(data.data);
+      } else {
+        console.warn('Failed to fetch sync history:', data.error || 'Unknown error');
+      }
+    } catch (err) {
+      console.error('Error fetching last sync dates:', err);
+    }
+  };
 
   const tabs: { id: EndpointTab; label: string; description: string; feedUrl: string }[] = [
     {
@@ -79,52 +108,131 @@ export default function XDConnectsPage() {
       const data = await res.json();
 
       if (!res.ok || !data.success) {
+        // Save failed sync to history
+        await saveSyncHistory(activeTab, null, false, data.error || 'Request failed');
         throw new Error(data.error || 'Request failed');
       }
 
+      // Determine record count
+      const recordCount = Array.isArray(data.data) ? data.data.length : 
+                         (typeof data.data === 'object' && data.data !== null ? 1 : 0);
+
+      // Save successful sync to history
+      await saveSyncHistory(activeTab, recordCount, true, null);
+
+      // Refresh last sync dates
+      await fetchLastSyncDates();
+
       setResponse(data.data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+      setError(errorMessage);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const saveSyncHistory = async (
+    feedType: EndpointTab,
+    recordCount: number | null,
+    success: boolean,
+    errorMessage: string | null
+  ) => {
+    try {
+      console.log('Saving XD Connects sync history:', { feedType, recordCount, success, errorMessage });
+      const res = await fetch('/api/xd-connects/sync-history', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          feedType,
+          recordCount,
+          success,
+          errorMessage,
+        }),
+      });
+      
+      const data = await res.json();
+      console.log('XD Connects sync history API response:', { status: res.status, ok: res.ok, data });
+      
+      if (!res.ok || !data.success) {
+        console.error('Error saving XD Connects sync history:', {
+          status: res.status,
+          error: data.error || 'Unknown error',
+          response: data
+        });
+      } else {
+        console.log('XD Connects sync history saved successfully:', data.data);
+      }
+    } catch (err) {
+      console.error('Error saving XD Connects sync history (catch):', err);
+    }
+  };
+
+  const formatLastSyncDate = (feedType: EndpointTab): string => {
+    const lastSync = lastSyncDates[feedType];
+    if (!lastSync) {
+      return 'Never synced';
+    }
+
+    const syncedAt = lastSync.syncedAt instanceof Date 
+      ? lastSync.syncedAt 
+      : new Date(lastSync.syncedAt);
+    
+    const now = new Date();
+    const diffMs = now.getTime() - syncedAt.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) {
+      return 'Just now';
+    } else if (diffMins < 60) {
+      return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
+    } else if (diffHours < 24) {
+      return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+    } else if (diffDays < 7) {
+      return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+    } else {
+      return syncedAt.toLocaleDateString() + ' ' + syncedAt.toLocaleTimeString();
     }
   };
 
   const activeTabInfo = tabs.find((t) => t.id === activeTab);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 p-8">
+    <div className={embedded ? "p-8" : "min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 p-8"}>
       <div className="max-w-7xl mx-auto">
-        <header className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            🔗 XD Connects Integration
-          </h1>
-          <p className="text-xl text-gray-600 mb-6">
-            Access XD Connects product feeds and data
-          </p>
-          
-          {/* Navigation */}
-          <nav className="flex justify-center space-x-4 mb-6 flex-wrap gap-2">
-            <Button asChild size="lg" variant="outline">
-              <a href="/">👥 Users</a>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <a href="/products">🛍️ Products</a>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <a href="/requests">📋 Requests</a>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <a href="/midocean">🌊 Midocean</a>
-            </Button>
-            <Button asChild size="lg" className="bg-purple-600 hover:bg-purple-700">
-              <a href="/xd-connects">🔗 XD Connects</a>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <a href="/product-providers">📦 Product Providers</a>
-            </Button>
-          </nav>
-        </header>
+        {!embedded && (
+          <header className="text-center mb-8">
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">
+              🔗 XD Connects Integration
+            </h1>
+            <p className="text-xl text-gray-600 mb-6">
+              Access XD Connects product feeds and data
+            </p>
+            
+            {/* Navigation */}
+            <nav className="flex justify-center space-x-4 mb-6 flex-wrap gap-2">
+              <Button asChild size="lg" variant="outline">
+                <a href="/">🏠 Home</a>
+              </Button>
+              <Button asChild size="lg" variant="outline">
+                <a href="/users-management">👥 Users Management</a>
+              </Button>
+              <Button asChild size="lg" variant="outline">
+                <a href="/midocean">🌊 Midocean</a>
+              </Button>
+              <Button asChild size="lg" className="bg-purple-600 hover:bg-purple-700">
+                <a href="/xd-connects">🔗 XD Connects</a>
+              </Button>
+              <Button asChild size="lg" variant="outline">
+                <a href="/product-providers">📦 Product Providers</a>
+              </Button>
+            </nav>
+          </header>
+        )}
 
         <div className="grid lg:grid-cols-4 gap-6">
           {/* Sidebar - Tabs */}
@@ -135,24 +243,39 @@ export default function XDConnectsPage() {
                 <CardDescription>Select a data feed</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
-                {tabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => {
-                      setActiveTab(tab.id);
-                      setResponse(null);
-                      setError(null);
-                    }}
-                    className={`w-full text-left p-3 rounded-lg transition-colors ${
-                      activeTab === tab.id
-                        ? 'bg-purple-100 text-purple-900 border-2 border-purple-500'
-                        : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
-                    }`}
-                  >
-                    <div className="font-medium">{tab.label}</div>
-                    <div className="text-xs text-gray-600 mt-1">{tab.description}</div>
-                  </button>
-                ))}
+                {tabs.map((tab) => {
+                  const lastSync = lastSyncDates[tab.id];
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => {
+                        setActiveTab(tab.id);
+                        setResponse(null);
+                        setError(null);
+                      }}
+                      className={`w-full text-left p-3 rounded-lg transition-colors ${
+                        activeTab === tab.id
+                          ? 'bg-purple-100 text-purple-900 border-2 border-purple-500'
+                          : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
+                      }`}
+                    >
+                      <div className="font-medium">{tab.label}</div>
+                      <div className="text-xs text-gray-600 mt-1">{tab.description}</div>
+                      {lastSync && (
+                        <div className="text-xs mt-1">
+                          <span className={`${lastSync.success ? 'text-green-600' : 'text-red-600'}`}>
+                            Last sync: {formatLastSyncDate(tab.id)}
+                          </span>
+                          {lastSync.recordCount !== null && lastSync.recordCount !== undefined && (
+                            <span className="text-gray-500 ml-1">
+                              ({lastSync.recordCount} records)
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </CardContent>
             </Card>
           </div>
@@ -165,7 +288,34 @@ export default function XDConnectsPage() {
                 <CardTitle>{activeTabInfo?.label}</CardTitle>
                 <CardDescription>{activeTabInfo?.description}</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                {lastSyncDates[activeTab] ? (
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-600">Last sync:</span>
+                      <span className={`text-sm font-medium ${
+                        lastSyncDates[activeTab].success ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {formatLastSyncDate(activeTab)}
+                      </span>
+                      {lastSyncDates[activeTab].recordCount !== null && 
+                       lastSyncDates[activeTab].recordCount !== undefined && (
+                        <span className="text-xs text-gray-500">
+                          ({lastSyncDates[activeTab].recordCount} records)
+                        </span>
+                      )}
+                    </div>
+                    {lastSyncDates[activeTab].success ? (
+                      <Badge className="bg-green-600">Success</Badge>
+                    ) : (
+                      <Badge variant="destructive">Failed</Badge>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <span className="text-sm text-gray-500">No sync history available</span>
+                  </div>
+                )}
                 <Button
                   onClick={handleFetch}
                   disabled={loading}

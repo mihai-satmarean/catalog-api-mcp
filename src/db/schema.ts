@@ -401,3 +401,41 @@ export type NewProductVariant = z.infer<typeof insertProductVariantSchema>;
 
 export type DigitalAsset = z.infer<typeof selectDigitalAssetSchema>;
 export type NewDigitalAsset = z.infer<typeof insertDigitalAssetSchema>;
+
+// Table for XD Connects sync history
+export const xdConnectsSyncHistory = sqliteTable('xd_connects_sync_history', {
+  id: text('id').primaryKey().$defaultFn(() => randomUUID()),
+  feedType: text('feed_type').notNull(), // 'product-data', 'product-prices', 'print-data', 'print-prices', 'stock'
+  syncedAt: integer('synced_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+  recordCount: integer('record_count'), // Number of records fetched
+  success: integer('success', { mode: 'boolean' }).notNull().default(true),
+  errorMessage: text('error_message'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+});
+
+// Zod schemas for xd_connects_sync_history
+export const insertXDConnectsSyncHistorySchema = createInsertSchema(xdConnectsSyncHistory);
+export const selectXDConnectsSyncHistorySchema = createSelectSchema(xdConnectsSyncHistory);
+
+export type XDConnectsSyncHistory = z.infer<typeof selectXDConnectsSyncHistorySchema>;
+export type NewXDConnectsSyncHistory = z.infer<typeof insertXDConnectsSyncHistorySchema>;
+
+// Table for Midocean sync history
+export const midoceanSyncHistory = sqliteTable('midocean_sync_history', {
+  id: text('id').primaryKey().$defaultFn(() => randomUUID()),
+  endpointType: text('endpoint_type').notNull(), // 'print-pricelist', 'pricelist', 'stock', 'products', 'order-create', 'order-detail', 'printdata'
+  environment: text('environment').notNull(), // 'test' or 'production'
+  syncedAt: integer('synced_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+  recordCount: integer('record_count'), // Number of records fetched
+  success: integer('success', { mode: 'boolean' }).notNull().default(true),
+  errorMessage: text('error_message'),
+  statusMessage: text('status_message'), // Status message from API (e.g., STATUS_TEXT from PRICELIST_RESPONSE)
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull().$defaultFn(() => new Date()),
+});
+
+// Zod schemas for midocean_sync_history
+export const insertMidoceanSyncHistorySchema = createInsertSchema(midoceanSyncHistory);
+export const selectMidoceanSyncHistorySchema = createSelectSchema(midoceanSyncHistory);
+
+export type MidoceanSyncHistory = z.infer<typeof selectMidoceanSyncHistorySchema>;
+export type NewMidoceanSyncHistory = z.infer<typeof insertMidoceanSyncHistorySchema>;

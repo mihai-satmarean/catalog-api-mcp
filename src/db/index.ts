@@ -5,7 +5,11 @@ import { dirname } from 'path';
 import { mkdirSync } from 'fs';
 
 // Create the connection
-export const dbPath = process.env.DATABASE_URL || './sqlite.db';
+// If DATABASE_URL is a PostgreSQL URL, ignore it and use SQLite
+const envDbPath = process.env.DATABASE_URL;
+export const dbPath = (envDbPath && !envDbPath.startsWith('postgresql://') && !envDbPath.startsWith('postgres://')) 
+  ? envDbPath 
+  : './sqlite.db';
 
 // Ensure the directory exists
 try {

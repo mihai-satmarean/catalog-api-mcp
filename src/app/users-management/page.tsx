@@ -38,7 +38,7 @@ interface User {
   updatedAt: string;
 }
 
-export default function UsersManagementPage() {
+export default function UsersManagementPage({ embedded = false }: { embedded?: boolean }) {
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
@@ -181,44 +181,40 @@ export default function UsersManagementPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
+    <div className={embedded ? "p-8" : "min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8"}>
       <div className="max-w-7xl mx-auto">
-        <header className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            👥 Users Management
-          </h1>
-          <p className="text-xl text-gray-600 mb-6">
-            Manage users in the system
-          </p>
+        {!embedded && (
+          <header className="text-center mb-8">
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">
+              👥 Users Management
+            </h1>
+            <p className="text-xl text-gray-600 mb-6">
+              Manage users in the system
+            </p>
 
-          {/* Navigation */}
-          <nav className="flex justify-center space-x-4 mb-6 flex-wrap gap-2">
-            <Button asChild size="lg" variant="outline">
-              <a href="/">🏠 Home</a>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <a href="/products">🛍️ Products</a>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <a href="/requests">📋 Requests</a>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <a href="/midocean">🌊 Midocean</a>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <a href="/xd-connects">🔗 XD Connects</a>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <a href="/product-providers">📦 Product Providers</a>
-            </Button>
-            <Button asChild size="lg" className="bg-blue-600 hover:bg-blue-700">
-              <a href="/users-management">👥 Users Management</a>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <a href="/free-days">📅 Free Days</a>
-            </Button>
-          </nav>
-        </header>
+            {/* Navigation */}
+            <nav className="flex justify-center space-x-4 mb-6 flex-wrap gap-2">
+              <Button asChild size="lg" variant="outline">
+                <a href="/">🏠 Home</a>
+              </Button>
+              <Button asChild size="lg" variant="outline">
+                <a href="/midocean">🌊 Midocean</a>
+              </Button>
+              <Button asChild size="lg" variant="outline">
+                <a href="/xd-connects">🔗 XD Connects</a>
+              </Button>
+              <Button asChild size="lg" variant="outline">
+                <a href="/product-providers">📦 Product Providers</a>
+              </Button>
+              <Button asChild size="lg" className="bg-blue-600 hover:bg-blue-700">
+                <a href="/users-management">👥 Users Management</a>
+              </Button>
+              <Button asChild size="lg" variant="outline">
+                <a href="/free-days">📅 Free Days</a>
+              </Button>
+            </nav>
+          </header>
+        )}
 
         <Card>
           <CardHeader>

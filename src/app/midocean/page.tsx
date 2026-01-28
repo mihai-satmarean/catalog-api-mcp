@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,17 +12,42 @@ type EndpointTab = 'print-pricelist' | 'pricelist' | 'stock' | 'products' | 'ord
 type Environment = 'test' | 'production';
 type Format = 'json' | 'xml' | 'csv';
 
-export default function MidoceanPage() {
+interface LastSyncInfo {
+  syncedAt: Date | string;
+  recordCount?: number | null;
+  success: boolean;
+  statusMessage?: string | null;
+}
+
+export default function MidoceanPage({ embedded = false }: { embedded?: boolean }) {
   const [activeTab, setActiveTab] = useState<EndpointTab>('print-pricelist');
   const [environment, setEnvironment] = useState<Environment>('test');
   const [format, setFormat] = useState<Format>('json');
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lastSyncDates, setLastSyncDates] = useState<Record<string, LastSyncInfo>>({});
   
   // Order-specific state
   const [orderId, setOrderId] = useState('');
   const [orderData, setOrderData] = useState('{}');
+
+  // Fetch last sync dates on component mount and when environment changes
+  useEffect(() => {
+    fetchLastSyncDates();
+  }, [environment]);
+
+  const fetchLastSyncDates = async () => {
+    try {
+      const res = await fetch(`/api/midocean/sync-history?environment=${environment}`);
+      const data = await res.json();
+      if (data.success && data.data) {
+        setLastSyncDates(data.data);
+      }
+    } catch (err) {
+      console.error('Error fetching last sync dates:', err);
+    }
+  };
 
   const tabs: { id: EndpointTab; label: string; description: string }[] = [
     { id: 'print-pricelist', label: 'Print Pricelist', description: 'Retrieve print prices' },
@@ -78,17 +103,139 @@ export default function MidoceanPage() {
       }
 
       const res = await fetch(url, options);
-      const data = await res.json();
+      
+      let data;
+      try {
+        data = await res.json();
+      } catch (jsonErr) {
+        console.error('Failed to parse response as JSON:', jsonErr);
+        const text = await res.text();
+        console.error('Response text:', text);
+        throw new Error('Invalid response format');
+      }
 
       if (!res.ok || !data.success) {
+        // Save failed sync to history
+        try {
+          await saveSyncHistory(activeTab, environment, null, false, data.error || 'Request failed', null);
+        } catch (syncErr) {
+          console.error('Failed to save failed sync history:', syncErr);
+        }
         throw new Error(data.error || 'Request failed');
+      }
+
+      // Extract STATUS_TEXT from PRICELIST_RESPONSE if present (for pricelist and print-pricelist endpoints)
+      let statusMessage: string | null = null;
+      if (data.data && typeof data.data === 'object') {
+        // Check for PRICELIST_RESPONSE structure (used by pricelist and print-pricelist)
+        if (data.data.PRICELIST_RESPONSE?.STATUS_TEXT) {
+          statusMessage = data.data.PRICELIST_RESPONSE.STATUS_TEXT;
+        } 
+        // Also check for PRINT_PRICELIST_RESPONSE structure (if different)
+        else if (data.data.PRINT_PRICELIST_RESPONSE?.STATUS_TEXT) {
+          statusMessage = data.data.PRINT_PRICELIST_RESPONSE.STATUS_TEXT;
+        }
+        // Fallback to direct statusMessage field
+        else if (data.data.statusMessage) {
+          statusMessage = data.data.statusMessage;
+        }
+        // Check nested structures
+        else if (data.data.response?.STATUS_TEXT) {
+          statusMessage = data.data.response.STATUS_TEXT;
+        }
+      }
+
+      // Determine record count
+      const recordCount = Array.isArray(data.data) ? data.data.length : 
+                         (typeof data.data === 'object' && data.data !== null ? 1 : 0);
+
+      // Save successful sync to history
+      try {
+        await saveSyncHistory(activeTab, environment, recordCount, true, null, statusMessage);
+        // Refresh last sync dates after saving
+        await fetchLastSyncDates();
+      } catch (syncErr) {
+        console.error('Failed to save sync history:', syncErr);
+        // Don't fail the whole operation if sync history save fails
       }
 
       setResponse(data.data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+      setError(errorMessage);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const saveSyncHistory = async (
+    endpointType: EndpointTab,
+    environment: Environment,
+    recordCount: number | null,
+    success: boolean,
+    errorMessage: string | null,
+    statusMessage: string | null = null
+  ) => {
+    try {
+      console.log('Saving sync history:', { endpointType, environment, recordCount, success });
+      const res = await fetch('/api/midocean/sync-history', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          endpointType,
+          environment,
+          recordCount,
+          success,
+          errorMessage,
+          statusMessage,
+        }),
+      });
+      
+      const data = await res.json();
+      console.log('Sync history API response:', { status: res.status, ok: res.ok, data });
+      
+      if (!res.ok || !data.success) {
+        console.error('Error saving sync history:', {
+          status: res.status,
+          error: data.error || 'Unknown error',
+          response: data
+        });
+      } else {
+        console.log('Sync history saved successfully:', data.data);
+      }
+    } catch (err) {
+      console.error('Error saving sync history (catch):', err);
+    }
+  };
+
+  const formatLastSyncDate = (endpointType: EndpointTab): string => {
+    const lastSync = lastSyncDates[endpointType];
+    if (!lastSync) {
+      return 'Never synced';
+    }
+
+    const syncedAt = lastSync.syncedAt instanceof Date 
+      ? lastSync.syncedAt 
+      : new Date(lastSync.syncedAt);
+    
+    const now = new Date();
+    const diffMs = now.getTime() - syncedAt.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) {
+      return 'Just now';
+    } else if (diffMins < 60) {
+      return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
+    } else if (diffHours < 24) {
+      return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+    } else if (diffDays < 7) {
+      return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+    } else {
+      return syncedAt.toLocaleDateString() + ' ' + syncedAt.toLocaleTimeString();
     }
   };
 
@@ -100,41 +247,40 @@ export default function MidoceanPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
+    <div className={embedded ? "p-8" : "min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8"}>
       <div className="max-w-7xl mx-auto">
-        <header className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            🌊 Midocean API Integration
-          </h1>
-          <p className="text-xl text-gray-600 mb-6">
-            Interact with Midocean provider APIs
-          </p>
-          
-          {/* Navigation */}
-          <nav className="flex justify-center space-x-4 mb-6 flex-wrap gap-2">
-            <Button asChild size="lg" variant="outline">
-              <a href="/users-management">👥 Users Management</a>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <a href="/products">🛍️ Products</a>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <a href="/requests">📋 Requests</a>
-            </Button>
-            <Button asChild size="lg" className="bg-blue-600 hover:bg-blue-700">
-              <a href="/midocean">🌊 Midocean</a>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <a href="/xd-connects">🔗 XD Connects</a>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <a href="/users-management">👥 Users Management</a>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <a href="/free-days">📅 Free Days</a>
-            </Button>
-          </nav>
-        </header>
+        {!embedded && (
+          <header className="text-center mb-8">
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">
+              🌊 Midocean API Integration
+            </h1>
+            <p className="text-xl text-gray-600 mb-6">
+              Interact with Midocean provider APIs
+            </p>
+            
+            {/* Navigation */}
+            <nav className="flex justify-center space-x-4 mb-6 flex-wrap gap-2">
+              <Button asChild size="lg" variant="outline">
+                <a href="/">🏠 Home</a>
+              </Button>
+              <Button asChild size="lg" variant="outline">
+                <a href="/users-management">👥 Users Management</a>
+              </Button>
+              <Button asChild size="lg" className="bg-blue-600 hover:bg-blue-700">
+                <a href="/midocean">🌊 Midocean</a>
+              </Button>
+              <Button asChild size="lg" variant="outline">
+                <a href="/xd-connects">🔗 XD Connects</a>
+              </Button>
+              <Button asChild size="lg" variant="outline">
+                <a href="/users-management">👥 Users Management</a>
+              </Button>
+              <Button asChild size="lg" variant="outline">
+                <a href="/free-days">📅 Free Days</a>
+              </Button>
+            </nav>
+          </header>
+        )}
 
         <div className="grid lg:grid-cols-4 gap-6">
           {/* Sidebar - Tabs */}
@@ -145,24 +291,46 @@ export default function MidoceanPage() {
                 <CardDescription>Select an API endpoint</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
-                {tabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => {
-                      setActiveTab(tab.id);
-                      setResponse(null);
-                      setError(null);
-                    }}
-                    className={`w-full text-left p-3 rounded-lg transition-colors ${
-                      activeTab === tab.id
-                        ? 'bg-blue-100 text-blue-900 border-2 border-blue-500'
-                        : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
-                    }`}
-                  >
-                    <div className="font-medium">{tab.label}</div>
-                    <div className="text-xs text-gray-600 mt-1">{tab.description}</div>
-                  </button>
-                ))}
+                {tabs.map((tab) => {
+                  const lastSync = lastSyncDates[tab.id];
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => {
+                        setActiveTab(tab.id);
+                        setResponse(null);
+                        setError(null);
+                      }}
+                      className={`w-full text-left p-3 rounded-lg transition-colors ${
+                        activeTab === tab.id
+                          ? 'bg-blue-100 text-blue-900 border-2 border-blue-500'
+                          : 'bg-gray-50 hover:bg-gray-100 border-2 border-transparent'
+                      }`}
+                    >
+                      <div className="font-medium">{tab.label}</div>
+                      <div className="text-xs text-gray-600 mt-1">{tab.description}</div>
+                      {lastSync && (
+                        <div className="text-xs mt-1 space-y-1">
+                          <div>
+                            <span className={`${lastSync.success ? 'text-green-600' : 'text-red-600'}`}>
+                              Last sync: {formatLastSyncDate(tab.id)}
+                            </span>
+                            {lastSync.recordCount !== null && lastSync.recordCount !== undefined && (
+                              <span className="text-gray-500 ml-1">
+                                ({lastSync.recordCount} records)
+                              </span>
+                            )}
+                          </div>
+                          {lastSync.statusMessage && (
+                            <div className="text-yellow-600 italic">
+                              {lastSync.statusMessage}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </CardContent>
             </Card>
           </div>
@@ -251,7 +419,41 @@ export default function MidoceanPage() {
 
             {/* Action Button */}
             <Card>
-              <CardContent className="pt-6">
+              <CardContent className="pt-6 space-y-4">
+                {lastSyncDates[activeTab] ? (
+                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-600">Last sync:</span>
+                        <span className={`text-sm font-medium ${
+                          lastSyncDates[activeTab].success ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {formatLastSyncDate(activeTab)}
+                        </span>
+                        {lastSyncDates[activeTab].recordCount !== null && 
+                         lastSyncDates[activeTab].recordCount !== undefined && (
+                          <span className="text-xs text-gray-500">
+                            ({lastSyncDates[activeTab].recordCount} records)
+                          </span>
+                        )}
+                      </div>
+                      {lastSyncDates[activeTab].success ? (
+                        <Badge className="bg-green-600">Success</Badge>
+                      ) : (
+                        <Badge variant="destructive">Failed</Badge>
+                      )}
+                    </div>
+                    {lastSyncDates[activeTab].statusMessage && (
+                      <div className="text-xs text-yellow-700 bg-yellow-50 p-2 rounded border border-yellow-200 italic">
+                        {lastSyncDates[activeTab].statusMessage}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <span className="text-sm text-gray-500">No sync history available</span>
+                  </div>
+                )}
                 <Button
                   onClick={handleFetch}
                   disabled={loading || (activeTab === 'order-detail' && !orderId.trim())}

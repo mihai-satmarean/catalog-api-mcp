@@ -1,237 +1,121 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
+import ProductProvidersPage from './product-providers/page';
+import XDConnectsPage from './xd-connects/page';
+import MidoceanPage from './midocean/page';
+import UsersManagementPage from './users-management/page';
 
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// Type guard to ensure data matches User interface
-const isValidUser = (data: any): data is User => {
-  return (
-    data &&
-    typeof data.id === 'string' &&
-    typeof data.email === 'string' &&
-    typeof data.name === 'string' &&
-    typeof data.createdAt === 'string' &&
-    typeof data.updatedAt === 'string'
-  );
-};
+type MenuItem = 'products' | 'xd-connects' | 'midocean' | 'users' | null;
 
 export default function Home() {
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [newUser, setNewUser] = useState({ name: '', email: '' });
+  const [activeView, setActiveView] = useState<MenuItem>(null);
+  const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const fetchUsers = async () => {
-    try {
-      const response = await fetch('/api/users');
-      const data = await response.json();
-      // Ensure data is an array and has the expected structure
-      if (Array.isArray(data)) {
-        const validUsers = data.filter(isValidUser);
-        setUsers(validUsers);
-      } else {
-        console.error('Unexpected data format:', data);
-        setUsers([]);
-      }
-    } catch (error) {
-      console.error('Error fetching users:', error);
-      setUsers([]);
-    } finally {
-      setLoading(false);
-    }
+  const toggleSubmenu = (menu: string) => {
+    setExpandedMenu(expandedMenu === menu ? null : menu);
   };
 
-  const createUser = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const response = await fetch('/api/users', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newUser),
-      });
-      
-      if (response.ok) {
-        setNewUser({ name: '', email: '' });
-        fetchUsers();
-      }
-    } catch (error) {
-      console.error('Error creating user:', error);
-    }
+  const handleMenuClick = (view: MenuItem) => {
+    setActiveView(view);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
-      <div className="max-w-4xl mx-auto">
-        <header className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            🚀 Next.js + Tailwind + Drizzle + SQLite
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex">
+      {/* Left Menu Zone */}
+      <div className="w-64 bg-white border-r border-gray-200 shadow-sm flex flex-col">
+        <div className="p-6 border-b border-gray-200">
+          <h1 className="text-xl font-bold text-gray-900 mb-2">
+            🚀 BMAC Demo
           </h1>
-          <p className="text-xl text-gray-600 mb-6">
-            A modern full-stack setup ready for development
+          <p className="text-sm text-gray-600">
+            Product Management System
           </p>
-          
-          {/* Navigation */}
-          <nav className="flex justify-center space-x-4 flex-wrap gap-2">
-            <Button asChild size="lg" className="bg-green-600 hover:bg-green-700">
-              <a href="/products">
-                🛍️ Products Management
-              </a>
-            </Button>
-            <Button asChild size="lg" className="bg-purple-600 hover:bg-purple-700">
-              <a href="/requests">
-                📋 Product Requests
-              </a>
-            </Button>
-            <Button asChild size="lg" className="bg-blue-600 hover:bg-blue-700">
-              <a href="/midocean">
-                🌊 Midocean API
-              </a>
-            </Button>
-            <Button asChild size="lg" className="bg-purple-600 hover:bg-purple-700">
-              <a href="/xd-connects">
-                🔗 XD Connects
-              </a>
-            </Button>
-            <Button asChild size="lg" variant="default">
-              <a href="/">
-                👥 Users Management
-              </a>
-            </Button>
-          </nav>
-        </header>
-
-        <div className="grid md:grid-cols-2 gap-8">
-          {/* Create User Form */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Create New User</CardTitle>
-              <CardDescription>
-                Add a new user to the system
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={createUser} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Name</Label>
-                  <Input
-                    type="text"
-                    id="name"
-                    value={newUser.name}
-                    onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
-                    placeholder="Enter user name"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    type="email"
-                    id="email"
-                    value={newUser.email}
-                    onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                    placeholder="Enter user email"
-                    required
-                  />
-                </div>
-                <Button type="submit" className="w-full">
-                  Create User
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-
-          {/* Users List */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                Users
-                <Badge variant="secondary">{users.length}</Badge>
-              </CardTitle>
-              <CardDescription>
-                List of all registered users
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                  <p className="mt-2 text-gray-600">Loading users...</p>
-                </div>
-              ) : users.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">
-                  No users found. Create your first user!
-                </p>
-              ) : (
-                <div className="space-y-3 max-h-64 overflow-y-auto">
-                  {users.map((user) => (
-                    <Card key={user.id} className="p-3">
-                      <div className="space-y-1">
-                        <h3 className="font-medium text-gray-900">{user.name}</h3>
-                        <p className="text-sm text-gray-600">{user.email}</p>
-                        <p className="text-xs text-gray-400">
-                          Created: {new Date(user.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
         </div>
+        
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+          {/* Products Menu Item */}
+          <Button
+            variant={activeView === 'products' ? 'default' : 'ghost'}
+            className="w-full justify-start"
+            onClick={() => handleMenuClick('products')}
+          >
+            <span className="mr-2">📦</span>
+            Products
+          </Button>
 
-        {/* Tech Stack Info */}
-        <Card className="mt-12">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              🛠️ Tech Stack
-            </CardTitle>
-            <CardDescription>
-              Modern technologies powering this application
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-4 gap-4">
-              <Card className="text-center p-4">
-                <div className="text-2xl mb-2">⚡</div>
-                <h3 className="font-semibold text-gray-800">Next.js 15</h3>
-                <p className="text-sm text-gray-600">Latest version</p>
-              </Card>
-              <Card className="text-center p-4">
-                <div className="text-2xl mb-2">🎨</div>
-                <h3 className="font-semibold text-gray-800">Tailwind CSS</h3>
-                <p className="text-sm text-gray-600">Utility-first CSS</p>
-              </Card>
-              <Card className="text-center p-4">
-                <div className="text-2xl mb-2">🗄️</div>
-                <h3 className="font-semibold text-gray-800">Drizzle ORM</h3>
-                <p className="text-sm text-gray-600">Type-safe queries</p>
-              </Card>
-              <Card className="text-center p-4">
-                <div className="text-2xl mb-2">🗄️</div>
-                <h3 className="font-semibold text-gray-800">SQLite</h3>
-                <p className="text-sm text-gray-600">Single container</p>
-              </Card>
+          {/* Providers Menu with Submenu */}
+          <div>
+            <Button
+              variant="ghost"
+              className="w-full justify-between"
+              onClick={() => toggleSubmenu('providers')}
+            >
+              <span className="flex items-center">
+                <span className="mr-2">🏢</span>
+                Providers
+              </span>
+              <span className={`transition-transform duration-200 ${expandedMenu === 'providers' ? 'rotate-90' : ''}`}>
+                ▶
+              </span>
+            </Button>
+            {expandedMenu === 'providers' && (
+              <div className="ml-6 mt-1 space-y-1">
+                <Button
+                  variant={activeView === 'xd-connects' ? 'default' : 'ghost'}
+                  className="w-full justify-start text-sm"
+                  onClick={() => handleMenuClick('xd-connects')}
+                >
+                  <span className="mr-2">🔗</span>
+                  XD Connects
+                </Button>
+                <Button
+                  variant={activeView === 'midocean' ? 'default' : 'ghost'}
+                  className="w-full justify-start text-sm"
+                  onClick={() => handleMenuClick('midocean')}
+                >
+                  <span className="mr-2">🌊</span>
+                  Midocean
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Users Menu Item */}
+          <Button
+            variant={activeView === 'users' ? 'default' : 'ghost'}
+            className="w-full justify-start"
+            onClick={() => handleMenuClick('users')}
+          >
+            <span className="mr-2">👥</span>
+            Users
+          </Button>
+        </nav>
+      </div>
+
+      {/* Right Working Zone */}
+      <div className="flex-1 overflow-y-auto bg-gradient-to-br from-blue-50 to-indigo-100">
+        {activeView === null ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <h2 className="text-3xl font-bold text-gray-900 mb-4">
+                Welcome to BMAC Demo
+              </h2>
+              <p className="text-xl text-gray-600 mb-8">
+                Select a menu item from the left to get started
+              </p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        ) : activeView === 'products' ? (
+          <ProductProvidersPage embedded={true} />
+        ) : activeView === 'xd-connects' ? (
+          <XDConnectsPage embedded={true} />
+        ) : activeView === 'midocean' ? (
+          <MidoceanPage embedded={true} />
+        ) : activeView === 'users' ? (
+          <UsersManagementPage embedded={true} />
+        ) : null}
       </div>
     </div>
   );

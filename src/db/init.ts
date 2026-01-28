@@ -7,18 +7,10 @@ import Database from 'better-sqlite3';
  */
 export function initializeDatabase(dbInstance: Database.Database) {
   try {
-    // Check if users table exists
-    const result = dbInstance.prepare(`
-      SELECT name FROM sqlite_master 
-      WHERE type='table' AND name='users'
-    `).get();
-
-    // If tables don't exist, create them
-    if (!result) {
-      console.log('Initializing database schema...');
-      createTables(dbInstance);
-      console.log('Database schema initialized successfully');
-    }
+    // Always ensure all tables exist (CREATE TABLE IF NOT EXISTS is safe)
+    console.log('Initializing database schema...');
+    createTables(dbInstance);
+    console.log('Database schema initialized successfully');
   } catch (error) {
     console.error('Error initializing database:', error);
     // Don't throw - allow app to continue even if init fails
@@ -300,6 +292,30 @@ function createTables(db: Database.Database) {
       type TEXT NOT NULL,
       subtype TEXT,
       created_at INTEGER NOT NULL
+    )`,
+    
+    // XD Connects sync history table
+    `CREATE TABLE IF NOT EXISTS xd_connects_sync_history (
+      id TEXT PRIMARY KEY,
+      feed_type TEXT NOT NULL,
+      synced_at INTEGER NOT NULL,
+      record_count INTEGER,
+      success INTEGER DEFAULT 1 NOT NULL,
+      error_message TEXT,
+      created_at INTEGER NOT NULL
+    )`,
+    
+    // Midocean sync history table
+    `CREATE TABLE IF NOT EXISTS midocean_sync_history (
+      id TEXT PRIMARY KEY,
+      endpoint_type TEXT NOT NULL,
+      environment TEXT NOT NULL,
+      synced_at INTEGER NOT NULL,
+      record_count INTEGER,
+      success INTEGER DEFAULT 1 NOT NULL,
+      error_message TEXT,
+      status_message TEXT,
+      created_at INTEGER NOT NULL
     )`
   ];
 
@@ -318,6 +334,11 @@ function createTables(db: Database.Database) {
     'CREATE INDEX IF NOT EXISTS idx_product_variants_product_id ON product_variants(product_id)',
     'CREATE INDEX IF NOT EXISTS idx_digital_assets_product_id ON digital_assets(product_id)',
     'CREATE INDEX IF NOT EXISTS idx_digital_assets_variant_id ON digital_assets(variant_id)',
+    'CREATE INDEX IF NOT EXISTS idx_xd_connects_sync_history_feed_type ON xd_connects_sync_history(feed_type)',
+    'CREATE INDEX IF NOT EXISTS idx_xd_connects_sync_history_synced_at ON xd_connects_sync_history(synced_at)',
+    'CREATE INDEX IF NOT EXISTS idx_midocean_sync_history_endpoint_type ON midocean_sync_history(endpoint_type)',
+    'CREATE INDEX IF NOT EXISTS idx_midocean_sync_history_environment ON midocean_sync_history(environment)',
+    'CREATE INDEX IF NOT EXISTS idx_midocean_sync_history_synced_at ON midocean_sync_history(synced_at)',
   ];
   
   for (const indexSql of indexes) {

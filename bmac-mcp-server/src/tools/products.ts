@@ -1,5 +1,5 @@
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
-import { db, products, productVariants, digitalAssets, productPrices } from '../db/connection.js';
+import { db, products, productVariants, digitalAssets, productPrices, productProviders } from '../db/connection.js';
 import { eq, like, and, or, sql, count } from 'drizzle-orm';
 import { getProducts as getMidoceanProducts, getPricelist as getMidoceanPricelist, getPrintPricelist as getMidoceanPrintPricelist } from '../lib/providers/midocean/client.js';
 import { getProductData as getXDConnectsProductData, getProductPrices as getXDConnectsProductPrices } from '../lib/providers/xd-connects/client.js';
@@ -142,6 +142,14 @@ export const productTools: Tool[] = [
         limit: { type: 'number', default: 500 },
         batchSize: { type: 'number', default: 50 },
       },
+    },
+  },
+  {
+    name: 'get_product_sources',
+    description: 'List all available product sources with their product counts.',
+    inputSchema: {
+      type: 'object',
+      properties: {},
     },
   },
 ];
@@ -1107,6 +1115,87 @@ export async function handleSyncXDConnectsPrices(args: any) {
         {
           type: 'text',
           text: `ERROR:${errorMessage.substring(0, 100)}`,
+        },
+      ],
+      isError: true,
+    };
+  }
+}
+
+export async function handleGetProductSources(args: any) {
+  try {
+    // Get distinct sources from products table with counts
+    const productSources = await db
+      .select({
+        source: products.source,
+        count: count(),
+      })
+      .from(products)
+      .groupBy(products.source);
+
+    // Get count of XD Connects products from productProviders table
+    const xdConnectsCount = await db
+      .select({ count: count() })
+      .from(productProviders);
+
+    // Build sources array
+    const sources: Array<{ source: string; count: number }> = [];
+
+    // Add Midocean if it exists
+    const midoceanSource = productSources.find((p: any) => p.source === 'midocean');
+    if (midoceanSource) {
+      sources.push({
+        source: 'midocean',
+        count: Number(midoceanSource.count),
+      });
+    }
+
+    // Add XD Connects
+    if (xdConnectsCount.length > 0 && Number(xdConnectsCount[0].count) > 0) {
+      sources.push({
+        source: 'xd-connects',
+        count: Number(xdConnectsCount[0].count),
+      });
+    }
+
+    // Add any other sources from products table
+    productSources.forEach((p: any) => {
+      if (p.source && p.source !== 'midocean' && !sources.find((s) => s.source === p.source)) {
+        sources.push({
+          source: p.source,
+          count: Number(p.count),
+        });
+      }
+    });
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              sources,
+              total: sources.reduce((sum, s) => sum + s.count, 0),
+            },
+            null,
+            2
+          ),
+        },
+      ],
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              error: errorMessage,
+            },
+            null,
+            2
+          ),
         },
       ],
       isError: true,

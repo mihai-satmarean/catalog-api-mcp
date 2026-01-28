@@ -177,12 +177,6 @@ export default function FreeDaysPage() {
               <a href="/">🏠 Home</a>
             </Button>
             <Button asChild size="lg" variant="outline">
-              <a href="/products">🛍️ Products</a>
-            </Button>
-            <Button asChild size="lg" variant="outline">
-              <a href="/requests">📋 Requests</a>
-            </Button>
-            <Button asChild size="lg" variant="outline">
               <a href="/midocean">🌊 Midocean</a>
             </Button>
             <Button asChild size="lg" variant="outline">
