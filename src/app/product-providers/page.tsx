@@ -430,8 +430,8 @@ export default function ProductProvidersPage({ embedded = false }: { embedded?: 
   };
 
   // Extract unique values for filters
-  const uniqueColors = Array.from(new Set(products.map(p => p.color).filter(Boolean))).sort();
-  const uniqueCategories = Array.from(new Set(products.map(p => p.mainCategory).filter(Boolean))).sort();
+  const uniqueColors = Array.from(new Set(products.map(p => p.color).filter((c): c is string => Boolean(c)))).sort();
+  const uniqueCategories = Array.from(new Set(products.map(p => p.mainCategory).filter((c): c is string => Boolean(c)))).sort();
 
   const filteredProducts = products.filter((product) => {
     // Search filter
