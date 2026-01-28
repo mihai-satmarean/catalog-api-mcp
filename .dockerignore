@@ -37,14 +37,7 @@ build
 *.swo
 *~
 
-# Next.js (main app)
-src/app
-src/components
-src/lib
-public
-next.config.ts
-postcss.config.mjs
-components.json
+
 
 # Database
 drizzle
