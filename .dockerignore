@@ -21,6 +21,7 @@ build
 !bmac-mcp-server/dist/**
 !bmac-mcp-server/node_modules/**
 !bmac-mcp-server/package.json
+bmac-mcp-server
 
 # Environment files
 .env

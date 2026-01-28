@@ -49,6 +49,7 @@ env:
 
 jobs:
   build-and-push-mcp:
+    if: false 
     runs-on: ubuntu-latest
     permissions:
       contents: read
