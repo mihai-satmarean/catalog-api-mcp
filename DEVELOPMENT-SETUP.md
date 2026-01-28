@@ -401,4 +401,4 @@ kubectl logs -f deployment/catalog-mcp-dev -n catalog-mcp-dev
 
 ---
 
-Last updated: 2026-01-27
+Last updated: 2026-01-28
