@@ -5,49 +5,26 @@ import { eq, or } from 'drizzle-orm';
 export const requestTools: Tool[] = [
   {
     name: 'get_product_requests',
-    description: 'Get a list of product requests with optional filters by status or product.',
+    description: 'List product requests by status.',
     inputSchema: {
       type: 'object',
       properties: {
-        status: {
-          type: 'string',
-          enum: ['pending', 'approved', 'rejected', 'fulfilled'],
-          description: 'Filter by request status',
-        },
-        productId: {
-          type: 'string',
-          description: 'Filter by product ID',
-        },
-        limit: {
-          type: 'number',
-          description: 'Maximum number of requests to return',
-          default: 50,
-        },
+        status: { type: 'string', enum: ['pending', 'approved', 'rejected', 'fulfilled'] },
+        productId: { type: 'string' },
+        limit: { type: 'number', default: 50 },
       },
     },
   },
   {
     name: 'create_product_request',
-    description: 'Create a new product request.',
+    description: 'Create product request.',
     inputSchema: {
       type: 'object',
       properties: {
-        productId: {
-          type: 'string',
-          description: 'The UUID of the product',
-        },
-        productName: {
-          type: 'string',
-          description: 'Name of the product',
-        },
-        quantity: {
-          type: 'number',
-          description: 'Quantity requested',
-        },
-        personalizationRemarks: {
-          type: 'string',
-          description: 'Optional personalization remarks',
-        },
+        productId: { type: 'string' },
+        productName: { type: 'string' },
+        quantity: { type: 'number' },
+        personalizationRemarks: { type: 'string' },
       },
       required: ['productId', 'productName', 'quantity'],
     },

@@ -33,6 +33,13 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# API tokens and credentials - NEVER COMMIT
+*-token.txt
+*-token.*
+*-key.txt
+*-credentials.txt
+credentials.txt
+
 # vercel
 .vercel
 

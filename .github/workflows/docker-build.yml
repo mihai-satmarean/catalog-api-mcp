@@ -1,4 +1,4 @@
-name: Build and Push MCP Server Docker Image
+name: Build and Push Docker Images (MCP + WebApp)
 
 on:
   push:
@@ -7,8 +7,19 @@ on:
       - master
     paths:
       - 'bmac-mcp-server/**'
+      - 'src/**'
+      - 'public/**'
       - '.github/workflows/docker-build.yml'
       - 'Dockerfile.mcp'
+      - 'Dockerfile.webapp'
+      - '.dockerignore'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'next.config.ts'
+      - 'postcss.config.mjs'
+      - 'components.json'
+      - 'tsconfig.json'
+      - 'drizzle.config.ts'
     tags:
       - 'v*'
   pull_request:
@@ -17,8 +28,19 @@ on:
       - master
     paths:
       - 'bmac-mcp-server/**'
+      - 'src/**'
+      - 'public/**'
       - '.github/workflows/docker-build.yml'
       - 'Dockerfile.mcp'
+      - 'Dockerfile.webapp'
+      - '.dockerignore'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'next.config.ts'
+      - 'postcss.config.mjs'
+      - 'components.json'
+      - 'tsconfig.json'
+      - 'drizzle.config.ts'
   workflow_dispatch:
 
 env:
@@ -26,7 +48,8 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build-and-push:
+  build-and-push-mcp:
+    if: false 
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -90,6 +113,62 @@ jobs:
       - name: Image digest
         run: echo ${{ steps.meta.outputs.digest }}
 
+  build-and-push-webapp:
+    name: Build and Push Next.js WebApp Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for WebApp image
+        id: meta-webapp
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-webapp
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push WebApp Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.webapp
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta-webapp.outputs.tags }}
+          labels: ${{ steps.meta-webapp.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+      - name: WebApp image digest
+        run: echo ${{ steps.meta-webapp.outputs.digest }}
+
+  deploy-to-production:
+    name: Deploy MCP to Production (obot-mcp namespace)
+    needs: build-and-push-mcp
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    
+    steps:
       - name: Setup kubectl
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: azure/setup-kubectl@v3
@@ -127,3 +206,93 @@ jobs:
           
           echo "Deployment restarted successfully!"
 
+  deploy-webapp-to-k3s-dev:
+    name: Deploy WebApp to K3s Development
+    needs: build-and-push-webapp
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+      
+      - name: Configure kubeconfig for K3s
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG_K3S_DEV }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+          
+          echo "Verifying K3s cluster connectivity..."
+          kubectl cluster-info
+          kubectl version --short
+      
+      - name: Create namespace if not exists
+        run: |
+          kubectl create namespace catalog-mcp-dev --dry-run=client -o yaml | kubectl apply -f -
+          echo "Namespace catalog-mcp-dev ready"
+      
+      - name: Create or update application secrets
+        run: |
+          kubectl create secret generic catalog-mcp-secrets \
+            --namespace=catalog-mcp-dev \
+            --from-literal=MIDOCEAN_TEST_API_KEY="${{ secrets.MIDOCEAN_TEST_API_KEY }}" \
+            --from-literal=MIDOCEAN_PROD_API_KEY="${{ secrets.MIDOCEAN_PROD_API_KEY }}" \
+            --from-literal=XD_CONNECTS_PRODUCT_DATA_URL="${{ secrets.XD_CONNECTS_PRODUCT_DATA_URL }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          echo "Secrets updated"
+      
+      - name: Apply Kubernetes manifests
+        run: |
+          echo "Applying K8s manifests from k8s/dev/..."
+          kubectl apply -f k8s/dev/ --namespace=catalog-mcp-dev
+          echo "Manifests applied successfully"
+      
+      - name: Force rollout restart to pick up new image
+        run: |
+          echo "Triggering rollout restart..."
+          kubectl rollout restart deployment/catalog-mcp-dev -n catalog-mcp-dev
+          
+          echo "Waiting for rollout to complete (timeout: 5 minutes)..."
+          kubectl rollout status deployment/catalog-mcp-dev -n catalog-mcp-dev --timeout=300s
+          
+          echo "Rollout completed successfully"
+      
+      - name: Display deployment status
+        run: |
+          echo ""
+          echo "=========================================="
+          echo "DEPLOYMENT STATUS"
+          echo "=========================================="
+          kubectl get deployment catalog-mcp-dev -n catalog-mcp-dev
+          echo ""
+          
+          echo "Pods:"
+          kubectl get pods -n catalog-mcp-dev -l app=catalog-mcp-dev
+          echo ""
+          
+          echo "Service:"
+          kubectl get service catalog-mcp-dev-service -n catalog-mcp-dev
+          echo ""
+          
+          echo "Ingress:"
+          kubectl get ingress catalog-mcp-dev-ingress -n catalog-mcp-dev
+          echo ""
+          
+          echo "=========================================="
+          echo "ACCESS INFORMATION"
+          echo "=========================================="
+          echo "Public URL (ngrok): https://unjestingly-unfoaled-donita.ngrok-free.dev"
+          echo "Direct K3s: http://10.108.111.115:3000 (requires port-forward)"
+          echo ""
+          echo "Testing Commands:"
+          echo "  curl https://unjestingly-unfoaled-donita.ngrok-free.dev/health"
+          echo ""
+          echo "Monitoring:"
+          echo "  kubectl logs -f deployment/catalog-mcp-dev -n catalog-mcp-dev"
+          echo "  ngrok Dashboard: https://dashboard.ngrok.com"
+          echo "=========================================="

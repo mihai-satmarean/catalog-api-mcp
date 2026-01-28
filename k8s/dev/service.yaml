@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: catalog-mcp-dev-service
+  namespace: catalog-mcp-dev
+  labels:
+    app: catalog-mcp-dev
+    component: mcp-server
+spec:
+  type: ClusterIP
+  selector:
+    app: catalog-mcp-dev
+  ports:
+  - name: mcp
+    port: 3000
+    targetPort: 3000
+    protocol: TCP

@@ -4,7 +4,7 @@ npm-debug.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-package-lock.json
+# package-lock.json - needed for npm ci in Dockerfile.webapp
 
 # Build artifacts
 dist
@@ -21,6 +21,7 @@ build
 !bmac-mcp-server/dist/**
 !bmac-mcp-server/node_modules/**
 !bmac-mcp-server/package.json
+bmac-mcp-server
 
 # Environment files
 .env
@@ -37,14 +38,7 @@ build
 *.swo
 *~
 
-# Next.js (main app)
-src/app
-src/components
-src/lib
-public
-next.config.ts
-postcss.config.mjs
-components.json
+
 
 # Database
 drizzle
@@ -53,7 +47,6 @@ drizzle
 *.db-journal
 *.db-wal
 *.db-shm
-drizzle.config.ts
 
 # Tests
 test
@@ -80,5 +73,4 @@ test-*.js
 bmac-demo
 .dockerignore
 docker-compose.yml
-tsconfig.json
 eslint.config.mjs

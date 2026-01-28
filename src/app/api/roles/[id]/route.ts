@@ -5,13 +5,14 @@ import { eq } from 'drizzle-orm';
 // GET - Get a single role by ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const [role] = await db
       .select()
       .from(roles)
-      .where(eq(roles.id, params.id))
+      .where(eq(roles.id, id))
       .limit(1);
 
     if (!role) {
@@ -34,16 +35,17 @@ export async function GET(
 // PUT - Update a role
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
 
     // Check if role exists
     const [existing] = await db
       .select()
       .from(roles)
-      .where(eq(roles.id, params.id))
+      .where(eq(roles.id, id))
       .limit(1);
 
     if (!existing) {
@@ -76,7 +78,7 @@ export async function PUT(
         description: body.description !== undefined ? body.description : existing.description,
         updatedAt: new Date(),
       })
-      .where(eq(roles.id, params.id))
+      .where(eq(roles.id, id))
       .returning();
 
     return NextResponse.json({ success: true, data: updated });
@@ -92,14 +94,15 @@ export async function PUT(
 // DELETE - Delete a role
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     // Check if role exists
     const [existing] = await db
       .select()
       .from(roles)
-      .where(eq(roles.id, params.id))
+      .where(eq(roles.id, id))
       .limit(1);
 
     if (!existing) {
@@ -109,7 +112,7 @@ export async function DELETE(
       );
     }
 
-    await db.delete(roles).where(eq(roles.id, params.id));
+    await db.delete(roles).where(eq(roles.id, id));
 
     return NextResponse.json({ success: true, message: 'Role deleted successfully' });
   } catch (error) {

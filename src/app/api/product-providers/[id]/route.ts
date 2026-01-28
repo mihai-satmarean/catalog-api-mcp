@@ -5,13 +5,14 @@ import { eq } from 'drizzle-orm';
 // GET - Get a single product provider by ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const [product] = await db
       .select()
       .from(productProviders)
-      .where(eq(productProviders.id, params.id))
+      .where(eq(productProviders.id, id))
       .limit(1);
 
     if (!product) {
@@ -34,16 +35,17 @@ export async function GET(
 // PUT - Update a product provider
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
 
     // Check if product exists
     const [existing] = await db
       .select()
       .from(productProviders)
-      .where(eq(productProviders.id, params.id))
+      .where(eq(productProviders.id, id))
       .limit(1);
 
     if (!existing) {
@@ -75,7 +77,7 @@ export async function PUT(
         ...body,
         updatedAt: new Date(),
       })
-      .where(eq(productProviders.id, params.id))
+      .where(eq(productProviders.id, id))
       .returning();
 
     return NextResponse.json({ success: true, data: updated });
@@ -91,14 +93,15 @@ export async function PUT(
 // DELETE - Delete a product provider
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     // Check if product exists
     const [existing] = await db
       .select()
       .from(productProviders)
-      .where(eq(productProviders.id, params.id))
+      .where(eq(productProviders.id, id))
       .limit(1);
 
     if (!existing) {
@@ -108,7 +111,7 @@ export async function DELETE(
       );
     }
 
-    await db.delete(productProviders).where(eq(productProviders.id, params.id));
+    await db.delete(productProviders).where(eq(productProviders.id, id));
 
     return NextResponse.json({ success: true, message: 'Product deleted successfully' });
   } catch (error) {
