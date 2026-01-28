@@ -9,11 +9,11 @@ function transformPriceData(price: any) {
   const itemCode = price.ItemCode || price.itemCode || null;
   
   // Helper to safely extract and convert price values
-  const extractPrice = (val: any): string | null => {
+  const extractPrice = (val: any): number | null => {
     if (val == null || val === '') return null;
     const numVal = Number(val);
     if (isNaN(numVal)) return null;
-    return numVal.toString();
+    return numVal;
   };
 
   // Extract price tiers if they exist (common formats)
