@@ -5,13 +5,14 @@ import { eq } from 'drizzle-orm';
 // GET - Get a single free day request by ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const [request] = await db
       .select()
       .from(freeDayRequests)
-      .where(eq(freeDayRequests.id, params.id))
+      .where(eq(freeDayRequests.id, id))
       .limit(1);
 
     if (!request) {
@@ -34,16 +35,17 @@ export async function GET(
 // PUT - Update a free day request (e.g., approve/reject)
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
 
     // Check if request exists
     const [existing] = await db
       .select()
       .from(freeDayRequests)
-      .where(eq(freeDayRequests.id, params.id))
+      .where(eq(freeDayRequests.id, id))
       .limit(1);
 
     if (!existing) {
@@ -86,7 +88,7 @@ export async function PUT(
     const [updated] = await db
       .update(freeDayRequests)
       .set(updateData)
-      .where(eq(freeDayRequests.id, params.id))
+      .where(eq(freeDayRequests.id, id))
       .returning();
 
     return NextResponse.json({ success: true, data: updated });
@@ -102,14 +104,15 @@ export async function PUT(
 // DELETE - Delete a free day request
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     // Check if request exists
     const [existing] = await db
       .select()
       .from(freeDayRequests)
-      .where(eq(freeDayRequests.id, params.id))
+      .where(eq(freeDayRequests.id, id))
       .limit(1);
 
     if (!existing) {
@@ -119,7 +122,7 @@ export async function DELETE(
       );
     }
 
-    await db.delete(freeDayRequests).where(eq(freeDayRequests.id, params.id));
+    await db.delete(freeDayRequests).where(eq(freeDayRequests.id, id));
 
     return NextResponse.json({ success: true, message: 'Request deleted successfully' });
   } catch (error) {

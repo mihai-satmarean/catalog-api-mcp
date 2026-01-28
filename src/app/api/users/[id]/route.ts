@@ -5,9 +5,10 @@ import { eq } from 'drizzle-orm';
 // GET - Get a single user by ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const [user] = await db
       .select({
         id: users.id,
@@ -24,7 +25,7 @@ export async function GET(
       })
       .from(users)
       .leftJoin(roles, eq(users.roleId, roles.id))
-      .where(eq(users.id, params.id))
+      .where(eq(users.id, id))
       .limit(1);
 
     if (!user) {
@@ -55,16 +56,17 @@ export async function GET(
 // PUT - Update a user
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
 
     // Check if user exists
     const [existing] = await db
       .select()
       .from(users)
-      .where(eq(users.id, params.id))
+      .where(eq(users.id, id))
       .limit(1);
 
     if (!existing) {
@@ -98,7 +100,7 @@ export async function PUT(
         roleId: body.roleId !== undefined ? body.roleId : existing.roleId,
         updatedAt: new Date(),
       })
-      .where(eq(users.id, params.id))
+      .where(eq(users.id, id))
       .returning();
 
     // Fetch updated user with role
@@ -142,13 +144,14 @@ export async function PUT(
 // DELETE - Delete a user
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const [existing] = await db
       .select()
       .from(users)
-      .where(eq(users.id, params.id))
+      .where(eq(users.id, id))
       .limit(1);
 
     if (!existing) {
@@ -158,7 +161,7 @@ export async function DELETE(
       );
     }
 
-    await db.delete(users).where(eq(users.id, params.id));
+    await db.delete(users).where(eq(users.id, id));
 
     return NextResponse.json({ message: 'User deleted successfully' });
   } catch (error) {

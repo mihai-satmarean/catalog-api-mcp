@@ -5,13 +5,14 @@ import { eq } from 'drizzle-orm';
 // GET - Get a single product price by ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const [price] = await db
       .select()
       .from(productPrices)
-      .where(eq(productPrices.id, params.id))
+      .where(eq(productPrices.id, id))
       .limit(1);
 
     if (!price) {
@@ -34,16 +35,17 @@ export async function GET(
 // PUT - Update a product price
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
 
     // Check if price exists
     const [existing] = await db
       .select()
       .from(productPrices)
-      .where(eq(productPrices.id, params.id))
+      .where(eq(productPrices.id, id))
       .limit(1);
 
     if (!existing) {
@@ -75,7 +77,7 @@ export async function PUT(
         ...body,
         updatedAt: new Date(),
       })
-      .where(eq(productPrices.id, params.id))
+      .where(eq(productPrices.id, id))
       .returning();
 
     return NextResponse.json({ success: true, data: updated });
@@ -91,14 +93,15 @@ export async function PUT(
 // DELETE - Delete a product price
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     // Check if price exists
     const [existing] = await db
       .select()
       .from(productPrices)
-      .where(eq(productPrices.id, params.id))
+      .where(eq(productPrices.id, id))
       .limit(1);
 
     if (!existing) {
@@ -108,7 +111,7 @@ export async function DELETE(
       );
     }
 
-    await db.delete(productPrices).where(eq(productPrices.id, params.id));
+    await db.delete(productPrices).where(eq(productPrices.id, id));
 
     return NextResponse.json({ success: true, message: 'Price deleted successfully' });
   } catch (error) {
