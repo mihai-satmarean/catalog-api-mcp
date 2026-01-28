@@ -228,6 +228,15 @@ jobs:
           echo "${{ secrets.KUBECONFIG_K3S_DEV }}" | base64 -d > $HOME/.kube/config
           chmod 600 $HOME/.kube/config
           
+          echo "DEBUG: Kubeconfig file exists:"
+          ls -la $HOME/.kube/config
+          echo "DEBUG: Kubeconfig first lines (redacted):"
+          head -n 5 $HOME/.kube/config | sed 's/certificate-authority-data:.*/certificate-authority-data: [REDACTED]/' | sed 's/client-certificate-data:.*/client-certificate-data: [REDACTED]/' | sed 's/client-key-data:.*/client-key-data: [REDACTED]/'
+          
+          echo "Setting KUBECONFIG environment variable..."
+          echo "KUBECONFIG=$HOME/.kube/config" >> $GITHUB_ENV
+          export KUBECONFIG=$HOME/.kube/config
+          
           echo "Verifying K3s cluster connectivity..."
           kubectl cluster-info
           kubectl version --short
