@@ -1296,7 +1296,6 @@ export default function ProductProvidersPage({ embedded = false }: { embedded?: 
                                       {variant.sku && <div><span className="font-medium">SKU:</span> {variant.sku}</div>}
                                       {variant.colorDescription && <div><span className="font-medium">Color:</span> {variant.colorDescription}</div>}
                                       {variant.colorGroup && <div><span className="font-medium">Color Group:</span> {variant.colorGroup}</div>}
-                                      {variant.gtin && <div><span className="font-medium">GTIN:</span> {variant.gtin}</div>}
                                     </div>
                                   </div>
                                 ))}
