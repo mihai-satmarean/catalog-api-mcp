@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
       environment,
       syncedAt: new Date(),
       recordCount: recordCount || null,
-      success: success ? 1 : 0, // SQLite uses INTEGER for boolean
+      success: !!success, // Convert to boolean
       errorMessage: errorMessage || null,
       statusMessage: statusMessage || null,
       createdAt: new Date(),
