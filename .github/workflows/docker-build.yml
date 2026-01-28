@@ -167,22 +167,22 @@ jobs:
     name: Deploy MCP to Production (obot-mcp namespace)
     needs: build-and-push-mcp
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/feature/'))
     
     steps:
       - name: Setup kubectl
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/feature/'))
         uses: azure/setup-kubectl@v3
 
       - name: Configure kubeconfig
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/feature/'))
         run: |
           mkdir -p $HOME/.kube
           echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
           chmod 600 $HOME/.kube/config
 
       - name: Find and restart deployment
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/feature/'))
         run: |
           echo "Finding deployment using our image..."
           
@@ -211,7 +211,7 @@ jobs:
     name: Deploy WebApp to K3s Development
     needs: build-and-push-webapp
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/feature/'))
     
     steps:
       - name: Checkout repository
