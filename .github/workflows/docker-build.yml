@@ -11,6 +11,7 @@ on:
       - '.github/workflows/docker-build.yml'
       - 'Dockerfile.mcp'
       - 'Dockerfile.webapp'
+      - '.dockerignore'
       - 'package.json'
     tags:
       - 'v*'
@@ -24,6 +25,7 @@ on:
       - '.github/workflows/docker-build.yml'
       - 'Dockerfile.mcp'
       - 'Dockerfile.webapp'
+      - '.dockerignore'
   workflow_dispatch:
 
 env:
@@ -278,4 +280,3 @@ jobs:
           echo "  kubectl logs -f deployment/catalog-mcp-dev -n catalog-mcp-dev"
           echo "  ngrok Dashboard: https://dashboard.ngrok.com"
           echo "=========================================="
-
