@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getOrderDetail, type MidoceanEnvironment } from '@/lib/providers/midocean/client';
+import { getOrderDetail } from '@/lib/providers/midocean/client';
+import type { MidoceanEnvironment } from '@/lib/providers/midocean/config';
 
 export async function GET(request: NextRequest) {
   try {

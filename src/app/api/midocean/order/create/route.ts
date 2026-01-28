@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createOrder, type MidoceanEnvironment } from '@/lib/providers/midocean/client';
+import { createOrder } from '@/lib/providers/midocean/client';
+import type { MidoceanEnvironment } from '@/lib/providers/midocean/config';
 
 export async function POST(request: NextRequest) {
   try {

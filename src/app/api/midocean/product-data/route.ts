@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getProducts, type MidoceanEnvironment } from '@/lib/providers/midocean/client';
+import { getProducts } from '@/lib/providers/midocean/client';
+import type { MidoceanEnvironment } from '@/lib/providers/midocean/config';
 import { db, products, productVariants, digitalAssets } from '@/db';
 import { eq, and } from 'drizzle-orm';
 

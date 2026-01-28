@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getPrintPricelist, type MidoceanResponseFormat, type MidoceanEnvironment } from '@/lib/providers/midocean/client';
+import { getPrintPricelist, type MidoceanResponseFormat } from '@/lib/providers/midocean/client';
+import type { MidoceanEnvironment } from '@/lib/providers/midocean/config';
 
 export async function GET(request: NextRequest) {
   try {
