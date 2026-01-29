@@ -406,16 +406,21 @@ jobs:
       - name: Install and configure VPN
         env:
           VPN_PASSWORD: ${{ secrets.VPN_PASSWORD }}
+          VPN_SERVER: ${{ secrets.VPN_SERVER }}
         run: |
           echo "Installing openfortivpn..."
           sudo apt-get update
           sudo apt-get install -y openfortivpn
           
+          echo "Parsing VPN server configuration..."
+          VPN_HOST=$(echo "$VPN_SERVER" | cut -d':' -f1)
+          VPN_PORT=$(echo "$VPN_SERVER" | cut -d':' -f2)
+          
           echo "Creating VPN configuration..."
           sudo mkdir -p /etc/openfortivpn
           sudo tee /etc/openfortivpn/config > /dev/null <<EOF
-          host = ${{ secrets.VPN_SERVER }}
-          port = 10443
+          host = $VPN_HOST
+          port = $VPN_PORT
           username = ${{ secrets.VPN_USERNAME }}
           password = $VPN_PASSWORD
           trusted-cert = ${{ secrets.VPN_TRUSTED_CERT }}
