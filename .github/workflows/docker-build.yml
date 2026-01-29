@@ -170,9 +170,11 @@ jobs:
       - name: Smoke test - Start and test the webapp
         run: |
           echo "Starting webapp container for smoke test..."
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-webapp:latest"
+          echo "Using image: $IMAGE_TAG"
           docker run -d --name webapp-test -p 3000:3000 \
             -e NODE_ENV=production \
-            ${{ steps.meta-webapp.outputs.tags }}
+            $IMAGE_TAG
           
           echo "Waiting for webapp to start (max 60 seconds)..."
           for i in {1..30}; do
