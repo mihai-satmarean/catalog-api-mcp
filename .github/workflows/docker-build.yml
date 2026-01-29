@@ -245,7 +245,6 @@ jobs:
       - name: Install and setup Ngrok
         env:
           NGROK_TOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
-          NGROK_DOMAIN: ${{ secrets.NGROK_DOMAIN }}
         run: |
           if [ -z "$NGROK_TOKEN" ]; then
             echo "ERROR: NGROK_AUTHTOKEN secret is not set!"
@@ -253,11 +252,8 @@ jobs:
             exit 1
           fi
           
-          if [ -z "$NGROK_DOMAIN" ]; then
-            echo "ERROR: NGROK_DOMAIN secret is not set!"
-            echo "Please set it at: https://github.com/${{ github.repository }}/settings/secrets/actions"
-            exit 1
-          fi
+          echo "Installing dependencies (jq for JSON parsing)..."
+          sudo apt-get update && sudo apt-get install -y jq
           
           echo "Installing ngrok..."
           curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
@@ -269,22 +265,36 @@ jobs:
           echo "Ngrok configured successfully!"
       
       - name: Start Ngrok tunnel
-        env:
-          NGROK_DOMAIN: ${{ secrets.NGROK_DOMAIN }}
         run: |
-          echo "Starting ngrok tunnel with domain: $NGROK_DOMAIN"
-          ngrok http 3000 --domain="$NGROK_DOMAIN" --log=stdout > ngrok.log 2>&1 &
+          echo "Starting ngrok tunnel with random URL (fixed domain is reserved for K8s deployment)..."
+          ngrok http 3000 --log=stdout > ngrok.log 2>&1 &
           NGROK_PID=$!
           echo "NGROK_PID=$NGROK_PID" >> $GITHUB_ENV
           
-          echo "Waiting for ngrok to start..."
+          echo "Waiting for ngrok to start and retrieve URL..."
           sleep 5
           
           echo "Checking ngrok status..."
-          if ps -p $NGROK_PID > /dev/null; then
-            echo "Ngrok is running with PID: $NGROK_PID"
-          else
+          if ! ps -p $NGROK_PID > /dev/null; then
             echo "ERROR: Ngrok failed to start!"
+            cat ngrok.log
+            exit 1
+          fi
+          
+          # Get the public URL from ngrok API
+          echo "Retrieving ngrok public URL..."
+          for i in {1..10}; do
+            NGROK_URL=$(curl -s http://localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url' 2>/dev/null)
+            if [ -n "$NGROK_URL" ] && [ "$NGROK_URL" != "null" ]; then
+              echo "NGROK_URL=$NGROK_URL" >> $GITHUB_ENV
+              break
+            fi
+            echo "Waiting for ngrok API... ($i/10)"
+            sleep 2
+          done
+          
+          if [ -z "$NGROK_URL" ] || [ "$NGROK_URL" = "null" ]; then
+            echo "ERROR: Could not retrieve ngrok URL!"
             cat ngrok.log
             exit 1
           fi
@@ -294,7 +304,11 @@ jobs:
           echo "WEBAPP IS READY FOR MANUAL TESTING"
           echo "=========================================="
           echo ""
-          echo "URL: https://$NGROK_DOMAIN"
+          echo "URL: $NGROK_URL"
+          echo ""
+          echo "NOTE: This is a temporary CI testing URL."
+          echo "The fixed domain (unjestingly-unfoaled-donita.ngrok-free.dev)"
+          echo "is reserved for the K8s deployment."
           echo ""
           echo "When you're done testing, click the 'Continue CI Build' button"
           echo "in the yellow banner at the top of the page."
