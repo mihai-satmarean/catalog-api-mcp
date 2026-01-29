@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(request: NextRequest) {
   console.log('CI Continue endpoint called - shutting down container...');
   
-  // Give time for response to be sent
+  // Give time for response to be sent over
   setTimeout(() => {
     process.exit(0);
   }, 500);
