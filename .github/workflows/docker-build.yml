@@ -467,7 +467,7 @@ jobs:
           
           echo "Verifying K3s cluster connectivity..."
           kubectl cluster-info
-          kubectl version --short
+          kubectl version
       
       - name: Create namespace if not exists
         run: |
