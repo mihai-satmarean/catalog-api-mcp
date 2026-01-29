@@ -243,32 +243,58 @@ jobs:
           done
       
       - name: Install and setup Ngrok
+        env:
+          NGROK_TOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
+          NGROK_DOMAIN: ${{ secrets.NGROK_DOMAIN }}
         run: |
+          if [ -z "$NGROK_TOKEN" ]; then
+            echo "ERROR: NGROK_AUTHTOKEN secret is not set!"
+            echo "Please set it at: https://github.com/${{ github.repository }}/settings/secrets/actions"
+            exit 1
+          fi
+          
+          if [ -z "$NGROK_DOMAIN" ]; then
+            echo "ERROR: NGROK_DOMAIN secret is not set!"
+            echo "Please set it at: https://github.com/${{ github.repository }}/settings/secrets/actions"
+            exit 1
+          fi
+          
           echo "Installing ngrok..."
           curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
           echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
           sudo apt update && sudo apt install ngrok
           
-          echo "Configuring ngrok..."
-          ngrok config add-authtoken ${{ secrets.NGROK_AUTHTOKEN }}
+          echo "Configuring ngrok with authtoken..."
+          ngrok config add-authtoken "$NGROK_TOKEN"
+          echo "Ngrok configured successfully!"
       
       - name: Start Ngrok tunnel
+        env:
+          NGROK_DOMAIN: ${{ secrets.NGROK_DOMAIN }}
         run: |
-          echo "Starting ngrok tunnel with domain..."
-          ngrok http 3000 --domain=${{ secrets.NGROK_DOMAIN }} --log=stdout > ngrok.log 2>&1 &
+          echo "Starting ngrok tunnel with domain: $NGROK_DOMAIN"
+          ngrok http 3000 --domain="$NGROK_DOMAIN" --log=stdout > ngrok.log 2>&1 &
           NGROK_PID=$!
           echo "NGROK_PID=$NGROK_PID" >> $GITHUB_ENV
           
           echo "Waiting for ngrok to start..."
           sleep 5
           
-          echo "Ngrok tunnel started!"
+          echo "Checking ngrok status..."
+          if ps -p $NGROK_PID > /dev/null; then
+            echo "Ngrok is running with PID: $NGROK_PID"
+          else
+            echo "ERROR: Ngrok failed to start!"
+            cat ngrok.log
+            exit 1
+          fi
+          
           echo ""
           echo "=========================================="
           echo "WEBAPP IS READY FOR MANUAL TESTING"
           echo "=========================================="
           echo ""
-          echo "URL: https://${{ secrets.NGROK_DOMAIN }}"
+          echo "URL: https://$NGROK_DOMAIN"
           echo ""
           echo "When you're done testing, click the 'Continue CI Build' button"
           echo "in the yellow banner at the top of the page."
