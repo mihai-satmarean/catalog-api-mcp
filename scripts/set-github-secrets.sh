@@ -44,6 +44,26 @@ if [ -n "$NGROK_DOMAIN" ]; then
     echo "$NGROK_DOMAIN" | gh secret set NGROK_DOMAIN
 fi
 
+if [ -n "$VPN_SERVER" ]; then
+    echo "Setting VPN_SERVER..."
+    echo "$VPN_SERVER" | gh secret set VPN_SERVER
+fi
+
+if [ -n "$VPN_USERNAME" ]; then
+    echo "Setting VPN_USERNAME..."
+    echo "$VPN_USERNAME" | gh secret set VPN_USERNAME
+fi
+
+if [ -n "$VPN_PASSWORD" ]; then
+    echo "Setting VPN_PASSWORD..."
+    echo "$VPN_PASSWORD" | gh secret set VPN_PASSWORD
+fi
+
+if [ -n "$VPN_TRUSTED_CERT" ]; then
+    echo "Setting VPN_TRUSTED_CERT..."
+    echo "$VPN_TRUSTED_CERT" | gh secret set VPN_TRUSTED_CERT
+fi
+
 if [ -n "$KUBECONFIG_K3S_DEV" ]; then
     echo "Setting KUBECONFIG_K3S_DEV..."
     echo "$KUBECONFIG_K3S_DEV" | gh secret set KUBECONFIG_K3S_DEV

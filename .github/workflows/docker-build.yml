@@ -403,16 +403,58 @@ jobs:
         with:
           version: 'latest'
       
+      - name: Install and configure VPN
+        env:
+          VPN_PASSWORD: ${{ secrets.VPN_PASSWORD }}
+        run: |
+          echo "Installing openfortivpn..."
+          sudo apt-get update
+          sudo apt-get install -y openfortivpn
+          
+          echo "Creating VPN configuration..."
+          sudo mkdir -p /etc/openfortivpn
+          sudo tee /etc/openfortivpn/config > /dev/null <<EOF
+          host = ${{ secrets.VPN_SERVER }}
+          port = 10443
+          username = ${{ secrets.VPN_USERNAME }}
+          password = $VPN_PASSWORD
+          trusted-cert = ${{ secrets.VPN_TRUSTED_CERT }}
+          EOF
+          
+          sudo chmod 600 /etc/openfortivpn/config
+          
+          echo "Starting VPN connection in background..."
+          sudo openfortivpn -c /etc/openfortivpn/config &
+          VPN_PID=$!
+          echo "VPN_PID=$VPN_PID" >> $GITHUB_ENV
+          
+          echo "Waiting for VPN to establish connection..."
+          for i in {1..30}; do
+            if ip addr show ppp0 2>/dev/null | grep -q "inet "; then
+              echo "VPN connection established!"
+              ip addr show ppp0
+              break
+            fi
+            echo "Waiting for VPN... ($i/30)"
+            sleep 2
+          done
+          
+          if ! ip addr show ppp0 2>/dev/null | grep -q "inet "; then
+            echo "ERROR: VPN connection failed to establish"
+            sudo tail -50 /var/log/syslog | grep fortivpn || true
+            exit 1
+          fi
+          
+          echo "Verifying connectivity to K3s cluster..."
+          ping -c 3 10.108.111.115 || echo "Warning: Cannot ping K3s server"
+          
+          echo "VPN connection successful!"
+      
       - name: Configure kubeconfig for K3s
         run: |
           mkdir -p $HOME/.kube
           echo "${{ secrets.KUBECONFIG_K3S_DEV }}" | base64 -d > $HOME/.kube/config
           chmod 600 $HOME/.kube/config
-          
-          echo "DEBUG: Kubeconfig file exists:"
-          ls -la $HOME/.kube/config
-          echo "DEBUG: Kubeconfig first lines (redacted):"
-          head -n 5 $HOME/.kube/config | sed 's/certificate-authority-data:.*/certificate-authority-data: [REDACTED]/' | sed 's/client-certificate-data:.*/client-certificate-data: [REDACTED]/' | sed 's/client-key-data:.*/client-key-data: [REDACTED]/'
           
           echo "Setting KUBECONFIG environment variable..."
           echo "KUBECONFIG=$HOME/.kube/config" >> $GITHUB_ENV
@@ -487,3 +529,13 @@ jobs:
           echo "  kubectl logs -f deployment/catalog-mcp-dev -n catalog-mcp-dev"
           echo "  ngrok Dashboard: https://dashboard.ngrok.com"
           echo "=========================================="
+      
+      - name: Cleanup VPN connection
+        if: always()
+        run: |
+          echo "Disconnecting VPN..."
+          if [ -n "$VPN_PID" ]; then
+            sudo kill $VPN_PID 2>/dev/null || true
+          fi
+          sudo pkill openfortivpn 2>/dev/null || true
+          echo "VPN cleanup complete"
