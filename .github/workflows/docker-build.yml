@@ -212,13 +212,19 @@ jobs:
       
       - name: Pull the built image
         run: |
-          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-webapp:${{ github.ref_name }}"
+          # Replace / with - in branch name for Docker tag
+          BRANCH_TAG="${{ github.ref_name }}"
+          BRANCH_TAG="${BRANCH_TAG//\//-}"
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-webapp:${BRANCH_TAG}"
           echo "Pulling image: $IMAGE_TAG"
           docker pull $IMAGE_TAG
       
       - name: Start webapp container
         run: |
-          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-webapp:${{ github.ref_name }}"
+          # Replace / with - in branch name for Docker tag
+          BRANCH_TAG="${{ github.ref_name }}"
+          BRANCH_TAG="${BRANCH_TAG//\//-}"
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-webapp:${BRANCH_TAG}"
           echo "Starting webapp container with CI test mode..."
           docker run -d --name webapp-test \
             -p 3000:3000 \
