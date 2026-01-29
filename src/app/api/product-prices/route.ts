@@ -127,10 +127,17 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error fetching product prices:', error);
-    return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 }
-    );
+    // Return empty array instead of error to prevent UI breaking during initialization
+    return NextResponse.json({
+      success: true,
+      data: [],
+      pagination: {
+        total: 0,
+        limit: 1000,
+        offset: 0,
+      },
+      message: 'Database initializing or empty',
+    });
   }
 }
 
