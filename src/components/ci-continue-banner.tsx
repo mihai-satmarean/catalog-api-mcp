@@ -7,8 +7,17 @@ export function CIContinueBanner() {
   const [isCIMode, setIsCIMode] = useState(false);
 
   useEffect(() => {
-    // Check if running in CI test mode by checking URL or making API call
+    // Check if running in CI test mode
     const checkCIMode = async () => {
+      // Don't show banner on production domain
+      const hostname = window.location.hostname;
+      if (hostname === 'unjestingly-unfoaled-donita.ngrok-free.dev' || 
+          hostname === 'localhost' ||
+          hostname === '127.0.0.1') {
+        return;
+      }
+      
+      // Only show on temporary ngrok URLs (random subdomains)
       try {
         const response = await fetch('/api/ci-continue');
         if (response.ok) {
