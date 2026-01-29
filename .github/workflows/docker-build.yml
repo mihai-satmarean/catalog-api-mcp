@@ -260,8 +260,13 @@ jobs:
           echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
           sudo apt update && sudo apt install ngrok
           
-          echo "Configuring ngrok with authtoken..."
-          ngrok config add-authtoken "$NGROK_TOKEN"
+          echo "Creating clean ngrok config with authtoken only..."
+          mkdir -p $HOME/.config/ngrok
+          cat > $HOME/.config/ngrok/ngrok.yml <<EOF
+          version: "2"
+          authtoken: $NGROK_TOKEN
+          EOF
+          chmod 600 $HOME/.config/ngrok/ngrok.yml
           echo "Ngrok configured successfully!"
       
       - name: Start Ngrok tunnel
