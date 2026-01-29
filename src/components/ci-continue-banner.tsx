@@ -1,10 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export function CIContinueBanner() {
   const [isShuttingDown, setIsShuttingDown] = useState(false);
-  const isCIMode = process.env.NEXT_PUBLIC_CI_TEST_MODE === 'true';
+  const [isCIMode, setIsCIMode] = useState(false);
+
+  useEffect(() => {
+    // Check if running in CI test mode by checking URL or making API call
+    const checkCIMode = async () => {
+      try {
+        const response = await fetch('/api/ci-continue');
+        if (response.ok) {
+          setIsCIMode(true);
+        }
+      } catch (error) {
+        // Endpoint doesn't exist, not in CI mode
+      }
+    };
+    
+    checkCIMode();
+  }, []);
 
   if (!isCIMode) return null;
 
