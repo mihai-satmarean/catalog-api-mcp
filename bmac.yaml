@@ -138,25 +138,10 @@ env:
     sensitive: true
     description: Full URL for XD Connects stock feed (optional, uses default if not provided)
 
-runtime: containerized
-containerizedConfig:
-  image: 'ghcr.io/mihai-satmarean/catalog-api-mcp:latest'
-  port: 3000
-  path: '/mcp'
-  storage:
-    enabled: true
-    size: 2Gi
-    mountPath: /app/data
-  env:
-    DATABASE_URL: "/app/data/sqlite.db"
-    MIDOCEAN_TEST_API_KEY: "${MIDOCEAN_TEST_API_KEY}"
-    MIDOCEAN_PROD_API_KEY: "${MIDOCEAN_PROD_API_KEY}"
-    MIDOCEAN_TEST_BASE_URL: "${MIDOCEAN_TEST_BASE_URL}"
-    MIDOCEAN_PROD_BASE_URL: "${MIDOCEAN_PROD_BASE_URL}"
-    XD_CONNECTS_BASE_URL: "${XD_CONNECTS_BASE_URL}"
-    XD_CONNECTS_PRODUCT_DATA_URL: "${XD_CONNECTS_PRODUCT_DATA_URL}"
-    XD_CONNECTS_PRODUCT_PRICES_URL: "${XD_CONNECTS_PRODUCT_PRICES_URL}"
-    XD_CONNECTS_PRINT_DATA_URL: "${XD_CONNECTS_PRINT_DATA_URL}"
-    XD_CONNECTS_PRINT_PRICES_URL: "${XD_CONNECTS_PRINT_PRICES_URL}"
-    XD_CONNECTS_STOCK_URL: "${XD_CONNECTS_STOCK_URL}"
+runtime: remote
+remoteConfig:
+  # Points to the shared nanobot sidecar in obot-99 pod.
+  # All users share the same SQLite database (catalog-api-data PVC),
+  # which is also used by catalog-api-webapp at https://catalog-api.ngrok.app
+  fixedURL: "http://catalog-api-mcp.obot-99.svc.cluster.local:3001/mcp"
 
