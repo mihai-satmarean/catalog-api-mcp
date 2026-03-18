@@ -46,7 +46,7 @@ RUN apk add --no-cache sqlite-libs
 
 # Copy nanobot and ngrok binaries
 COPY --from=nanobot-source /usr/local/bin/nanobot /usr/local/bin/nanobot
-COPY --from=ngrok-source   /usr/local/bin/ngrok   /usr/local/bin/ngrok
+COPY --from=ngrok-source   /ngrok                 /usr/local/bin/ngrok
 
 # ── MCP server files ──────────────────────────────────────────────────────────
 WORKDIR /app/mcp
