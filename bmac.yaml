@@ -140,8 +140,8 @@ env:
 
 runtime: remote
 remoteConfig:
-  # Points to the shared nanobot sidecar in obot-99 pod.
+  # Public HTTPS endpoint for the shared nanobot sidecar in obot-99.
   # All users share the same SQLite database (catalog-api-data PVC),
   # which is also used by catalog-api-webapp at https://catalog-api.ngrok.app
-  fixedURL: "http://catalog-api-mcp.obot-99.svc.cluster.local:3001/mcp"
+  fixedURL: "https://mcp-connector.ngrok.app/mcp"
 
