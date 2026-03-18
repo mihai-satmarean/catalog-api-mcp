@@ -29,6 +29,7 @@ cd /
 echo "[fat] Starting nanobot MCP server on port 3000"
 exec nanobot run --listen-address :3000 \
   --config /nanobot.yaml \
+  --exclude-built-in-agents \
   -e DATABASE_URL \
   -e NGROK_AUTHTOKEN \
   -e NGROK_DOMAIN \
