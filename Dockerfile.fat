@@ -36,17 +36,18 @@ RUN npm run build
 # ── Stage 3: Pull nanobot from obot phat image ───────────────────────────────
 FROM ghcr.io/obot-platform/mcp-images/phat:main AS nanobot-source
 
-# ── Stage 4: Pull ngrok binary ───────────────────────────────────────────────
-FROM ngrok/ngrok:latest AS ngrok-source
-
 # ── Final runtime image ───────────────────────────────────────────────────────
 FROM node:20-alpine
 
-RUN apk add --no-cache sqlite-libs
+# Install runtime deps + download ngrok v3 binary directly from official source
+RUN apk add --no-cache sqlite-libs curl tar && \
+    curl -fsSL https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz \
+      | tar xzf - -C /usr/local/bin ngrok && \
+    chmod +x /usr/local/bin/ngrok && \
+    apk del curl tar
 
-# Copy nanobot and ngrok binaries
+# Copy nanobot binary
 COPY --from=nanobot-source /usr/local/bin/nanobot /usr/local/bin/nanobot
-COPY --from=ngrok-source   /ngrok                 /usr/local/bin/ngrok
 
 # ── MCP server files ──────────────────────────────────────────────────────────
 WORKDIR /app/mcp
