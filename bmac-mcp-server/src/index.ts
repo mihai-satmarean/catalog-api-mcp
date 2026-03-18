@@ -45,6 +45,7 @@ try {
 import { productTools, handleGetProducts, handleGetProductDetails, handleSearchProducts, handleImportProducts, handleSyncSuppliers, handleGetXDConnectsPrices, handleGetMidoceanPrices, handleGetMidoceanPrintPrices, handleSyncXDConnectsPrices } from './tools/products.js';
 import { userTools, handleGetUsers, handleGetUserDetails } from './tools/users.js';
 import { requestTools, handleGetProductRequests, handleCreateProductRequest } from './tools/requests.js';
+import { systemTools, handleGetWebappUrl } from './tools/system.js';
 import { listProductResources, getProductResource } from './resources/products.js';
 
 // Create MCP server
@@ -68,6 +69,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       ...productTools,
       ...userTools,
       ...requestTools,
+      ...systemTools,
     ],
   };
 });
@@ -116,7 +118,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       
       case 'create_product_request':
         return await handleCreateProductRequest(args || {});
-      
+
+      case 'get_webapp_url':
+        return await handleGetWebappUrl();
+
       default:
         throw new Error(`Unknown tool: ${name}`);
     }

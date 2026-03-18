@@ -1,0 +1,121 @@
+# Fat container: nanobot (MCP) + Next.js webapp + ngrok — all sharing one SQLite database.
+# Each Obot user gets their own isolated instance of this container,
+# so their MCP and their webapp share the same /app/data/sqlite.db.
+#
+# Ports:
+#   3000 — nanobot MCP server (Obot connects here)
+#   3001 — Next.js webapp (tunnelled via ngrok)
+#   4040 — ngrok local API (used by get_webapp_url MCP tool)
+
+# ── Stage 1: Build MCP server (TypeScript → JavaScript) ──────────────────────
+FROM node:20-alpine AS mcp-builder
+
+RUN apk add --no-cache python3 make g++ sqlite-dev
+
+WORKDIR /build
+COPY bmac-mcp-server/src ./src
+COPY bmac-mcp-server/tsconfig.json ./
+COPY bmac-mcp-server/package*.json ./
+RUN npm ci
+RUN npm run build
+
+# ── Stage 2: Build Next.js webapp ────────────────────────────────────────────
+FROM node:20-alpine AS webapp-builder
+
+RUN apk add --no-cache python3 make g++
+
+WORKDIR /app
+COPY package.json package-lock.json* ./
+RUN npm install
+
+COPY . .
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
+RUN npm run build
+
+# ── Stage 3: Pull nanobot from obot phat image ───────────────────────────────
+FROM ghcr.io/obot-platform/mcp-images/phat:main AS nanobot-source
+
+# ── Stage 4: Pull ngrok binary ───────────────────────────────────────────────
+FROM ngrok/ngrok:latest AS ngrok-source
+
+# ── Final runtime image ───────────────────────────────────────────────────────
+FROM node:20-alpine
+
+RUN apk add --no-cache sqlite-libs
+
+# Copy nanobot and ngrok binaries
+COPY --from=nanobot-source /usr/local/bin/nanobot /usr/local/bin/nanobot
+COPY --from=ngrok-source   /usr/local/bin/ngrok   /usr/local/bin/ngrok
+
+# ── MCP server files ──────────────────────────────────────────────────────────
+WORKDIR /app/mcp
+COPY --from=mcp-builder /build/dist        ./dist
+COPY --from=mcp-builder /build/node_modules ./node_modules
+COPY --from=mcp-builder /build/package.json ./package.json
+
+# ── Next.js webapp files ──────────────────────────────────────────────────────
+WORKDIR /webapp
+COPY --from=webapp-builder /app/public                   ./public
+COPY --from=webapp-builder /app/.next/standalone         ./
+COPY --from=webapp-builder /app/.next/static             ./.next/static
+
+# ── Shared data directory (SQLite) ───────────────────────────────────────────
+RUN mkdir -p /app/data && chmod 777 /app/data
+
+# ── nanobot.yaml ──────────────────────────────────────────────────────────────
+RUN cat > /nanobot.yaml <<'EOF'
+publish:
+  mcpServers: [server]
+
+mcpServers:
+  server:
+    command: node
+    args: [/app/mcp/dist/index.js]
+    env:
+      DATABASE_URL: ${DATABASE_URL}
+      NODE_ENV: production
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+      NGROK_DOMAIN: ${NGROK_DOMAIN}
+      MIDOCEAN_TEST_API_KEY: ${MIDOCEAN_TEST_API_KEY}
+      MIDOCEAN_PROD_API_KEY: ${MIDOCEAN_PROD_API_KEY}
+      MIDOCEAN_TEST_BASE_URL: ${MIDOCEAN_TEST_BASE_URL}
+      MIDOCEAN_PROD_BASE_URL: ${MIDOCEAN_PROD_BASE_URL}
+      XD_CONNECTS_BASE_URL: ${XD_CONNECTS_BASE_URL}
+      XD_CONNECTS_PRODUCT_DATA_URL: ${XD_CONNECTS_PRODUCT_DATA_URL}
+      XD_CONNECTS_PRODUCT_PRICES_URL: ${XD_CONNECTS_PRODUCT_PRICES_URL}
+      XD_CONNECTS_PRINT_DATA_URL: ${XD_CONNECTS_PRINT_DATA_URL}
+      XD_CONNECTS_PRINT_PRICES_URL: ${XD_CONNECTS_PRINT_PRICES_URL}
+      XD_CONNECTS_STOCK_URL: ${XD_CONNECTS_STOCK_URL}
+EOF
+
+# ── Entrypoint ────────────────────────────────────────────────────────────────
+COPY entrypoint-fat.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# ── Default environment variables ─────────────────────────────────────────────
+ENV DATABASE_URL=/app/data/sqlite.db
+ENV NANOBOT_STATE=/app/data/nanobot.db
+ENV NGROK_AUTHTOKEN=""
+ENV NGROK_DOMAIN=""
+ENV MIDOCEAN_TEST_API_KEY=""
+ENV MIDOCEAN_PROD_API_KEY=""
+ENV MIDOCEAN_TEST_BASE_URL=""
+ENV MIDOCEAN_PROD_BASE_URL=""
+ENV XD_CONNECTS_BASE_URL=""
+ENV XD_CONNECTS_PRODUCT_DATA_URL=""
+ENV XD_CONNECTS_PRODUCT_PRICES_URL=""
+ENV XD_CONNECTS_PRINT_DATA_URL=""
+ENV XD_CONNECTS_PRINT_PRICES_URL=""
+ENV XD_CONNECTS_STOCK_URL=""
+
+# Obot runs containers as UID 1000
+RUN chown -R 1000:1000 /app /webapp /nanobot.yaml /entrypoint.sh
+USER 1000
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD wget -qO- http://localhost:3000/healthz 2>/dev/null || exit 1
+
+ENTRYPOINT ["/entrypoint.sh"]
