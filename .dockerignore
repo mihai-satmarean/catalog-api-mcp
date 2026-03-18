@@ -64,6 +64,7 @@ DOCKER_BUILD.md
 
 # Scripts
 *.sh
+!entrypoint-fat.sh
 test-*.js
 
 # System files
