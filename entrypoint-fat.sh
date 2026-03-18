@@ -4,20 +4,20 @@ set -e
 # Ensure data directory exists (may be a fresh volume mount)
 mkdir -p /app/data
 
-# Start webapp in background on port 3001 (internal only)
+# Start webapp in background on port 3002 (3001 is reserved by nanobot UI)
 cd /webapp
-PORT=3001 DATABASE_URL="${DATABASE_URL}" HOSTNAME=0.0.0.0 node server.js &
+PORT=3002 DATABASE_URL="${DATABASE_URL}" HOSTNAME=0.0.0.0 node server.js &
 WEBAPP_PID=$!
-echo "[fat] Webapp started (PID $WEBAPP_PID) on port 3001"
+echo "[fat] Webapp started (PID $WEBAPP_PID) on port 3002"
 
 # Start ngrok tunnel for the webapp if NGROK_AUTHTOKEN is set
 if [ -n "${NGROK_AUTHTOKEN}" ]; then
   if [ -n "${NGROK_DOMAIN}" ]; then
     echo "[fat] Starting ngrok tunnel → https://${NGROK_DOMAIN}"
-    ngrok http 3001 --domain="${NGROK_DOMAIN}" --log=stdout 2>&1 &
+    ngrok http 3002 --domain="${NGROK_DOMAIN}" --log=stdout 2>&1 &
   else
     echo "[fat] Starting ngrok tunnel with auto-assigned URL"
-    ngrok http 3001 --log=stdout 2>&1 &
+    ngrok http 3002 --log=stdout 2>&1 &
   fi
 else
   echo "[fat] NGROK_AUTHTOKEN not set — skipping ngrok tunnel (webapp only reachable internally)"
