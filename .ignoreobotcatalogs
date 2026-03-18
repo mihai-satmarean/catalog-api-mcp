@@ -38,8 +38,6 @@ package-lock.json
 
 # Documentation
 *.md
-!bmac.yaml
-!smithery.yaml
 
 # Public assets
 public/*
