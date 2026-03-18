@@ -1,0 +1,3 @@
+# Obot processes only the files listed here as MCP catalog entries.
+# All other YAML/JSON files in the repo are ignored.
+bmac.yaml
