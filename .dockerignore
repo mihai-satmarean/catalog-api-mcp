@@ -18,10 +18,13 @@ build
 .gitignore
 .github
 *.md
+bmac-mcp-server
+!bmac-mcp-server/src/**
+!bmac-mcp-server/tsconfig.json
+!bmac-mcp-server/package.json
+!bmac-mcp-server/package-lock.json
 !bmac-mcp-server/dist/**
 !bmac-mcp-server/node_modules/**
-!bmac-mcp-server/package.json
-bmac-mcp-server
 
 # Environment files
 .env
