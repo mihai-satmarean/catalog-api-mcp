@@ -70,7 +70,7 @@ toolPreview:
       quantity: Quantity requested (required)
       personalizationRemarks: Optional personalization remarks (optional)
   - name: get_webapp_url
-    description: Get the public HTTPS URL of your personal product catalog webapp (requires NGROK_AUTHTOKEN)
+    description: Get the public HTTPS URL of your personal product catalog webapp (automatically generated via Cloudflare tunnel)
     params: {}
 
 metadata:
@@ -140,22 +140,11 @@ env:
     required: false
     sensitive: true
     description: Full URL for XD Connects stock feed (optional, uses default if not provided)
-  - key: NGROK_AUTHTOKEN
-    name: Ngrok Auth Token
-    required: false
-    sensitive: true
-    description: Ngrok authentication token. When set, a personal webapp tunnel is created for this user. Get your token at https://dashboard.ngrok.com/authtokens
-  - key: NGROK_DOMAIN
-    name: Ngrok Reserved Domain
-    required: false
-    sensitive: false
-    description: Optional reserved ngrok domain for the webapp (e.g. sorin-catalog.ngrok.app). If not set, ngrok generates a random URL. Requires a reserved domain in your ngrok account.
-
 runtime: containerized
 containerizedConfig:
   # "Fat container" — each user gets their own isolated instance with:
   #   - nanobot MCP server on port 3000
-  #   - Next.js webapp on port 3001 (tunnelled via ngrok if NGROK_AUTHTOKEN is set)
+  #   - Next.js webapp on port 3002 (tunnelled automatically via Cloudflare quick tunnel)
   #   - Shared SQLite at /app/data/sqlite.db (private per user)
   image: ghcr.io/mihai-satmarean/catalog-api-mcp-fat:main
   port: 3000

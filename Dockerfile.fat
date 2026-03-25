@@ -1,11 +1,11 @@
-# Fat container: nanobot (MCP) + Next.js webapp + ngrok — all sharing one SQLite database.
+# Fat container: nanobot (MCP) + Next.js webapp + cloudflared — all sharing one SQLite database.
 # Each Obot user gets their own isolated instance of this container,
 # so their MCP and their webapp share the same /app/data/sqlite.db.
 #
 # Ports:
 #   3000 — nanobot MCP server (Obot connects here)
-#   3001 — Next.js webapp (tunnelled via ngrok)
-#   4040 — ngrok local API (used by get_webapp_url MCP tool)
+#   3002 — Next.js webapp (tunnelled via cloudflared → random *.trycloudflare.com URL)
+#   20241 — cloudflared metrics API (used by get_webapp_url MCP tool)
 
 # ── Stage 1: Build MCP server (TypeScript → JavaScript) ──────────────────────
 FROM node:20-alpine AS mcp-builder
@@ -39,12 +39,12 @@ FROM ghcr.io/obot-platform/mcp-images/phat:main AS nanobot-source
 # ── Final runtime image ───────────────────────────────────────────────────────
 FROM node:20-alpine
 
-# Install runtime deps + download ngrok v3 binary directly from official source
-RUN apk add --no-cache sqlite-libs curl tar && \
-    curl -fsSL https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz \
-      | tar xzf - -C /usr/local/bin ngrok && \
-    chmod +x /usr/local/bin/ngrok && \
-    apk del curl tar
+# Install runtime deps + download cloudflared binary (no account/token required for quick tunnels)
+RUN apk add --no-cache sqlite-libs curl && \
+    curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 \
+      -o /usr/local/bin/cloudflared && \
+    chmod +x /usr/local/bin/cloudflared && \
+    apk del curl
 
 # Copy nanobot binary
 COPY --from=nanobot-source /usr/local/bin/nanobot /usr/local/bin/nanobot
@@ -76,8 +76,6 @@ mcpServers:
     env:
       DATABASE_URL: ${DATABASE_URL}
       NODE_ENV: production
-      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
-      NGROK_DOMAIN: ${NGROK_DOMAIN}
       MIDOCEAN_TEST_API_KEY: ${MIDOCEAN_TEST_API_KEY}
       MIDOCEAN_PROD_API_KEY: ${MIDOCEAN_PROD_API_KEY}
       MIDOCEAN_TEST_BASE_URL: ${MIDOCEAN_TEST_BASE_URL}
@@ -97,8 +95,6 @@ RUN chmod +x /entrypoint.sh
 # ── Default environment variables ─────────────────────────────────────────────
 ENV DATABASE_URL=/app/data/sqlite.db
 ENV NANOBOT_STATE=/app/data/nanobot.db
-ENV NGROK_AUTHTOKEN=""
-ENV NGROK_DOMAIN=""
 ENV MIDOCEAN_TEST_API_KEY=""
 ENV MIDOCEAN_PROD_API_KEY=""
 ENV MIDOCEAN_TEST_BASE_URL=""

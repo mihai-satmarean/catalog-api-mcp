@@ -4,7 +4,7 @@ export const systemTools = [
     description:
       'Get the public URL of your personal product catalog webapp. ' +
       'Returns the HTTPS link where you can browse, search, and manage your private product catalog through a web interface. ' +
-      'Requires NGROK_AUTHTOKEN to be configured for this MCP instance.',
+      'The URL is automatically generated via Cloudflare tunnel — no configuration required.',
     inputSchema: {
       type: 'object' as const,
       properties: {},
@@ -13,22 +13,20 @@ export const systemTools = [
   },
 ];
 
-interface NgrokTunnel {
-  public_url: string;
-  proto: string;
-  config?: { addr: string };
-}
-
-interface NgrokApiResponse {
-  tunnels: NgrokTunnel[];
+interface CloudflaredQuickTunnel {
+  hostname: string;
+  url?: string;
 }
 
 export async function handleGetWebappUrl(): Promise<{
   content: Array<{ type: string; text: string }>;
 }> {
+  // cloudflared exposes the quick tunnel URL at :20241/quicktunnel
+  const metricsUrl = 'http://localhost:20241/quicktunnel';
+
   try {
-    const response = await fetch('http://localhost:4040/api/tunnels', {
-      signal: AbortSignal.timeout(3000),
+    const response = await fetch(metricsUrl, {
+      signal: AbortSignal.timeout(4000),
     });
 
     if (!response.ok) {
@@ -36,33 +34,22 @@ export async function handleGetWebappUrl(): Promise<{
         content: [
           {
             type: 'text',
-            text: 'Webapp tunnel is not active. Ask the administrator to configure NGROK_AUTHTOKEN for your MCP instance to enable the web interface.',
+            text: 'The webapp tunnel is still starting up. Try again in a few seconds.',
           },
         ],
       };
     }
 
-    const data = (await response.json()) as NgrokApiResponse;
-    const tunnel = data.tunnels?.find((t) => t.public_url?.startsWith('https'));
+    const data = (await response.json()) as CloudflaredQuickTunnel;
+    const hostname = data.hostname || data.url;
 
-    if (tunnel) {
+    if (hostname) {
+      const url = hostname.startsWith('https://') ? hostname : `https://${hostname}`;
       return {
         content: [
           {
             type: 'text',
-            text: `Your personal product catalog webapp is available at:\n\n${tunnel.public_url}\n\nOpen this URL in your browser to browse products, sync suppliers, and manage your catalog through the web interface. This instance is private — it uses your own isolated database.`,
-          },
-        ],
-      };
-    }
-
-    const httpTunnel = data.tunnels?.find((t) => t.public_url?.startsWith('http'));
-    if (httpTunnel) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Webapp is running but only an HTTP tunnel is active: ${httpTunnel.public_url}\n\nA reserved HTTPS domain (NGROK_DOMAIN) is recommended for production use.`,
+            text: `Your personal product catalog webapp is available at:\n\n${url}\n\nOpen this URL in your browser to browse products, sync suppliers, and manage your catalog through the web interface. This instance is private — it uses your own isolated database.`,
           },
         ],
       };
@@ -72,7 +59,7 @@ export async function handleGetWebappUrl(): Promise<{
       content: [
         {
           type: 'text',
-          text: 'Ngrok is running but no active tunnel found yet. The tunnel may still be establishing. Try again in a few seconds.',
+          text: 'Cloudflare tunnel is starting. The URL is not ready yet — try again in a few seconds.',
         },
       ],
     };
@@ -81,7 +68,7 @@ export async function handleGetWebappUrl(): Promise<{
       content: [
         {
           type: 'text',
-          text: 'Webapp URL not available. If you want web access to your catalog, ask the administrator to configure NGROK_AUTHTOKEN for your MCP instance.',
+          text: 'Webapp tunnel is not yet active. It may still be establishing the Cloudflare connection. Try again in 10-15 seconds after the MCP server starts.',
         },
       ],
     };
